@@ -372,6 +372,7 @@
 | Jupiter | `SwapJupiter` |
 | OKX | `SwapOKX` |
 | CowSwap | `SwapCow` |
+| Exodus | `SwapExodus` |
 | Panora | `SwapPanora` |
 | LiquidMesh | `SwapLiquidMesh` |
 | LiFi | `SwapLifi` |
@@ -391,6 +392,7 @@
 | ✅ 需要 | ChangeHero (`SwapChangeHero`) | 构建依赖 ChangeHero 侧 quote 上下文 |
 | ✅ 需要 | 1inch Fusion (`Swap1inchFusion`) | 必须先 quote，使用返回的 `quoteResultCtx` 进行 Fusion 构建 |
 | ✅ 需要 | CowSwap (`SwapCow`) | 必须携带 CowSwap 询价返回的 `quoteResultCtx`（包括 unsignedOrder、appData、quoteId、签名等） |
+| ✅ 需要 | Exodus (`SwapExodus`) | 仅跨链渠道，构建前必须先询价并携带返回的 `quoteResultCtx`（跨链路径、桥接信息等） |
 | ❌ 不需要 | 0x (`Swap0x`) | 仅依赖静态参数（from/to/tokenAmount/network/provider/slippage 等） |
 | ❌ 不需要 | 1inch (`Swap1inch`) | 普通 1inch 构建不需要 quoteResultCtx，按静态参数构建 |
 | ❌ 不需要 | OKX (`SwapOKX`) | 构建按静态参数+provider 即可 |
@@ -437,6 +439,9 @@
 
 **SWFT**：
 - Filecoin、Ripple、SOL、DOGE、LTC、zkSync Era、Fantom、ETC、Base、Ethereum、BSC、Polygon、Avalanche、Optimism、Arbitrum、Tron、Polkadot、Algorand、Cardano、Aptos、EthereumW、Linea、Mantle、Celo
+
+**Exodus（仅跨链）**：
+- BTC、Doge、LTC、Optimism、Arbitrum、Ethereum、Base、BSC、Solana、Avalanche、Polygon、Fantom、Ripple、Tron、TON、SUI
 
 **Changelly**：
 - BTC、Ethereum、Polygon、Avalanche、Fantom、Arbitrum、Optimism、SOL、Near、ETC、DOGE、LTC、BCH、Ripple、zkSync Era、CFX、Base、Kaspa
@@ -521,8 +526,8 @@
 | Bitcoin Cash | `bitcoincash:qqz4mx4h9t5ux9vjgjj4fefyrrv3a56gqujx8jz6fy` | BCH 地址 |
 | Bitcoin Taproot | `bc1ph7kashckclw7krcat6um7xlvvms4rsnpv2962av4pkdhw9sm08xqlm4nlc` | BTC Taproot 地址 |
 | Bitcoin Nested SegWit | `3CPcZhXh8fkaVrvX8LPxhpHzecS8AMUZ8H` | BTC P2SH-P2WPKH 地址 |
-| Bitcoin Native SegWit | `3CPcZhXh8fkaVrvX8LPxhpHzecS8AMUZ8H` | BTC Bech32 测试（如需专用地址可后续拆分） |
-| Bitcoin Legacy | `3CPcZhXh8fkaVrvX8LPxhpHzecS8AMUZ8H` | BTC Legacy 测试（同上，可后续拆分） |
+| Bitcoin Native SegWit | `bc1qxen4232s9uyms7vhz5yj4nssjcgcw4ngt25gzm` | BTC Bech32 测试（如需专用地址可后续拆分） |
+| Bitcoin Legacy | `1DmmuFwDUdmqJNUU7qzsfUFZijqNjfoQ5k` | BTC Legacy 测试（同上，可后续拆分） |
 | Litecoin Nested SegWit | `MS6rq9UZenRGgfZe9AWUP1Uy9LVSGa8Wb9` | LTC P2SH-P2WPKH 地址 |
 | Litecoin Native SegWit | `ltc1qnfw5td47d7euedp22aca8068s7fmpp3pelca7d` | LTC Bech32 地址 |
 | Litecoin Legacy | `LLDxVgko1QChSend8YB9HwZ3tvMhhGTA9F` | LTC Legacy 地址 |
