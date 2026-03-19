@@ -1,22 +1,9 @@
-// Market Search Tests — MARKET-SEARCH-001 ~ MARKET-SEARCH-005
-// Generated from recording session: 2026-03-18
-//
-// Key stable selectors from recording:
-// - Search input:   [data-testid="nav-header-search"]
-// - Clear button:   [data-testid="-clear"]
-// - Close search:   [data-testid="nav-header-close"]
-//
-// Design notes:
-// - Same flow, multiple inputs -> parameterized coverage (see SKILL rules).
-// - Scroll-to-bottom is validated by scroll metrics (not fixed last-row text).
-// - Screenshots only on failure.
+// Market Search Tests (Extension) — EXT-MARKET-SEARCH-001 ~ EXT-MARKET-SEARCH-005
+// Browser extension version using shared market-search helpers.
+// Connects via CDP port 9224 (Chrome with extension loaded).
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import {
-  connectCDP, sleep, screenshot, RESULTS_DIR,
-  dismissOverlays, unlockWalletIfNeeded,
-} from '../../helpers/index.mjs';
 import {
   createStepTracker, safeStep,
   isSearchModalOpen, getModalSearchInput,
@@ -25,59 +12,68 @@ import {
   assertHasSomeTableLikeContent, clickShowMoreIfPresent,
   scrollToBottomAndAssert, clickFirstSuggestionIfPresent,
   clickClearHistoryIfPresent, toggleFavoriteOnFirstRow,
-  snapshotWatchlistCount,
   getSearchHistory, clickSearchResult, clickClearHistory,
+  snapshotWatchlistCount,
 } from '../../helpers/market-search.mjs';
+import { connectExtensionCDP, getExtensionId } from '../../helpers/extension-cdp.mjs';
 
-const SCREENSHOT_DIR = resolve(RESULTS_DIR, 'market-search');
+const RESULTS_DIR = resolve(import.meta.dirname, '../../../../shared/results');
+const SCREENSHOT_DIR = resolve(RESULTS_DIR, 'ext-market-search');
 mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-const ALL_TEST_IDS = [
-  'MARKET-SEARCH-001',
-  'MARKET-SEARCH-002',
-  'MARKET-SEARCH-003',
-  'MARKET-SEARCH-004',
-  'MARKET-SEARCH-005',
-];
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// ── Platform-specific: Desktop ───────────────────────────────
+// ── Platform-specific: Extension ─────────────────────────────
 
 async function goToMarket(page) {
-  const ok = await page.evaluate(() => {
-    const sidebar = document.querySelector('[data-testid="Desktop-AppSideBar-Content-Container"]');
-    if (!sidebar) return false;
-    const labels = new Set(['Market', '市场', 'マーケット', 'Mercado']);
-    for (const sp of sidebar.querySelectorAll('span')) {
-      const txt = sp.textContent?.trim();
-      if (!txt) continue;
-      if (!labels.has(txt)) continue;
-      const r = sp.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) {
-        sp.click();
-        return true;
-      }
-    }
-    // Fallback: try partial match
-    for (const sp of sidebar.querySelectorAll('span')) {
-      const txt = sp.textContent?.trim() || '';
-      if (!txt) continue;
-      if (txt.includes('Market') || txt.includes('市场')) {
-        const r = sp.getBoundingClientRect();
+  const extId = getExtensionId();
+  const url = page.url();
+
+  // If already on a market-like view inside the extension, skip
+  if (url.includes('/market') && url.includes(extId)) return;
+
+  // Try sidebar navigation first
+  const navigated = await page.evaluate(() => {
+    // Look for sidebar Market link/button
+    const candidates = document.querySelectorAll('a, button, [role="tab"], [role="menuitem"]');
+    for (const el of candidates) {
+      const txt = (el.textContent || '').trim();
+      const href = el.getAttribute('href') || '';
+      if (txt === '市场' || txt === 'Market' || href.includes('/market')) {
+        const r = el.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) {
-          sp.click();
+          el.click();
           return true;
         }
       }
     }
     return false;
   });
-  if (!ok) throw new Error('Cannot navigate to Market via sidebar');
-  await sleep(2500);
+
+  if (navigated) {
+    await sleep(3000);
+    return;
+  }
+
+  // Fallback: direct URL navigation within extension
+  await page.goto(`chrome-extension://${extId}/ui-expand-tab.html#/market`);
+  await sleep(3000);
 }
 
-/** Desktop search trigger: click the header search input (NOT inside the modal). */
+async function screenshotExt(page, name) {
+  try {
+    const path = `${SCREENSHOT_DIR}/${name}.png`;
+    await page.screenshot({ path });
+  } catch {}
+}
+
+/**
+ * Extension search trigger: try nav-header-search input first (like desktop),
+ * fallback to magnifying-glass SVG icon button (like web).
+ */
 async function openSearchTrigger(page) {
   const pos = await page.evaluate(() => {
+    // Strategy 1: data-testid header search input (same as desktop)
     const modal = document.querySelector('[data-testid="APP-Modal-Screen"]');
     const inputs = Array.from(document.querySelectorAll('input[data-testid="nav-header-search"]'));
     const input = inputs.find(el => {
@@ -85,34 +81,57 @@ async function openSearchTrigger(page) {
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     });
-    if (!input) throw new Error('Header nav-header-search not found');
-    const r = input.getBoundingClientRect();
-    return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    if (input) {
+      const r = input.getBoundingClientRect();
+      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    }
+
+    // Strategy 2: SVG magnifying glass icon (same as web)
+    const svgs = document.querySelectorAll('svg');
+    for (const svg of svgs) {
+      const paths = svg.querySelectorAll('path');
+      for (const p of paths) {
+        const d = p.getAttribute('d') || '';
+        if (d.startsWith('M11 3a8') || d.startsWith('M11 3')) {
+          const btn = svg.closest('button') || svg.closest('[role="button"]') || svg.parentElement;
+          if (btn) {
+            const r = btn.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) {
+              return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+            }
+          }
+          const r = svg.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) {
+            return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+          }
+        }
+      }
+    }
+
+    throw new Error('Search trigger (header input or SVG icon) not found');
   });
   await page.mouse.click(pos.x, pos.y);
 }
 
-// Convenience wrappers that bind the desktop trigger
+// Convenience wrappers that bind the extension trigger
 const _open = (page) => openSearchModal(page, openSearchTrigger);
 const _ensure = (page) => ensureSearchOpen(page, openSearchTrigger);
 const _setStrict = (page, v) => setSearchValueStrict(page, v, openSearchTrigger);
 const _set = (page, v) => setSearchValue(page, v, openSearchTrigger);
 const _scrollBottom = (page, opts) => scrollToBottomAndAssert(page, opts, openSearchTrigger);
-const _safeStep = (page, t, name, fn) => safeStep(page, t, name, fn, (p, n) => screenshot(p, SCREENSHOT_DIR, n));
+const _safeStep = (page, t, name, fn) => safeStep(page, t, name, fn, screenshotExt);
 
 // ── Test Cases ───────────────────────────────────────────────
 
-async function testMarketSearch001(page) {
-  const t = createStepTracker('MARKET-SEARCH-001');
+async function testExtMarketSearch001(page) {
+  const t = createStepTracker('EXT-MARKET-SEARCH-001');
 
   await goToMarket(page);
   await _ensure(page);
 
-  // Trending visibility is not stable across locales; we validate that search UI opens and has content.
   await assertHasSomeTableLikeContent(page);
   t.add('打开搜索界面可见内容/空状态', 'passed');
 
-  // Best-effort: click a row to verify navigation. If not possible, treat as "soft" failure.
   const clicked = await page.evaluate(() => {
     const modal = document.querySelector('[data-testid="APP-Modal-Screen"]');
     if (!modal) return false;
@@ -142,8 +161,8 @@ async function testMarketSearch001(page) {
   return t.result();
 }
 
-async function testMarketSearch002(page) {
-  const t = createStepTracker('MARKET-SEARCH-002');
+async function testExtMarketSearch002(page) {
+  const t = createStepTracker('EXT-MARKET-SEARCH-002');
 
   await goToMarket(page);
   await _ensure(page);
@@ -184,8 +203,8 @@ async function testMarketSearch002(page) {
   return t.result();
 }
 
-async function testMarketSearch003(page) {
-  const t = createStepTracker('MARKET-SEARCH-003');
+async function testExtMarketSearch003(page) {
+  const t = createStepTracker('EXT-MARKET-SEARCH-003');
 
   await goToMarket(page);
   await _ensure(page);
@@ -237,8 +256,8 @@ async function testMarketSearch003(page) {
   return t.result();
 }
 
-async function testMarketSearch004(page) {
-  const t = createStepTracker('MARKET-SEARCH-004');
+async function testExtMarketSearch004(page) {
+  const t = createStepTracker('EXT-MARKET-SEARCH-004');
 
   await goToMarket(page);
 
@@ -267,24 +286,21 @@ async function testMarketSearch004(page) {
   return t.result();
 }
 
-async function testMarketSearch005(page) {
-  const t = createStepTracker('MARKET-SEARCH-005');
+async function testExtMarketSearch005(page) {
+  const t = createStepTracker('EXT-MARKET-SEARCH-005');
 
   await goToMarket(page);
   await _ensure(page);
 
-  // Step 1: Check if search history exists
   const history = await getSearchHistory(page);
   t.add('检查最近搜索区域', 'passed',
     history.hasHistory ? `有历史: [${history.keywords.slice(0, 5).join(', ')}]` : '无历史记录');
 
   if (history.hasHistory && history.keywords.length > 0) {
-    // Step 2: Clear search history
     const cleared = await clickClearHistory(page);
     t.add('点击清空历史按钮', cleared ? 'passed' : 'failed',
       cleared ? 'cleared' : 'clear button not found');
 
-    // Step 3: Verify history is gone
     await sleep(500);
     const historyAfter = await getSearchHistory(page);
     const historyCleared = !historyAfter.hasHistory || historyAfter.keywords.length === 0;
@@ -292,12 +308,10 @@ async function testMarketSearch005(page) {
       historyCleared ? 'history empty' : `still has: [${historyAfter.keywords.join(', ')}]`);
   }
 
-  // Step 4: Search and click result to create new history
   const clicked = await clickSearchResult(page, openSearchTrigger, 'ETH');
   t.add('搜索 ETH 并点击结果', clicked ? 'passed' : 'failed',
     clicked ? 'clicked' : 'no clickable result');
 
-  // Step 5: Reopen search and check if new history appeared
   await goToMarket(page);
   await _ensure(page);
   const newHistory = await getSearchHistory(page);
@@ -309,31 +323,29 @@ async function testMarketSearch005(page) {
 }
 
 export const testCases = [
-  { id: 'MARKET-SEARCH-001', name: 'Market-搜索-入口与Trending跳转', fn: testMarketSearch001 },
-  { id: 'MARKET-SEARCH-002', name: 'Market-搜索-Symbol搜索与滚动加载', fn: testMarketSearch002 },
-  { id: 'MARKET-SEARCH-003', name: 'Market-搜索-合约地址与异常输入', fn: testMarketSearch003 },
-  { id: 'MARKET-SEARCH-004', name: 'Market-搜索-收藏联动（自选Tab）', fn: testMarketSearch004 },
-  { id: 'MARKET-SEARCH-005', name: 'Market-搜索-历史与建议', fn: testMarketSearch005 },
+  { id: 'EXT-MARKET-SEARCH-001', name: 'Ext-Market-搜索-入口与Trending跳转', fn: testExtMarketSearch001 },
+  { id: 'EXT-MARKET-SEARCH-002', name: 'Ext-Market-搜索-Symbol搜索与滚动加载', fn: testExtMarketSearch002 },
+  { id: 'EXT-MARKET-SEARCH-003', name: 'Ext-Market-搜索-合约地址与异常输入', fn: testExtMarketSearch003 },
+  { id: 'EXT-MARKET-SEARCH-004', name: 'Ext-Market-搜索-收藏联动（自选Tab）', fn: testExtMarketSearch004 },
+  { id: 'EXT-MARKET-SEARCH-005', name: 'Ext-Market-搜索-历史与建议', fn: testExtMarketSearch005 },
 ];
 
 export async function setup(page) {
-  await unlockWalletIfNeeded(page);
-  await dismissOverlays(page);
   await goToMarket(page);
 }
 
 export async function run() {
-  const filter = process.argv.slice(2).find(a => a.startsWith('MARKET-SEARCH-'));
+  const filter = process.argv.slice(2).find(a => a.startsWith('EXT-MARKET-SEARCH-'));
   const casesToRun = filter ? testCases.filter(c => c.id === filter) : testCases;
   if (casesToRun.length === 0) {
     console.error(`No tests matching "${filter}"`);
     return { status: 'error' };
   }
 
-  let { page } = await connectCDP();
+  let { browser, page } = await connectExtensionCDP();
 
   console.log('\n' + '='.repeat(60));
-  console.log(`  Market Search Tests — ${casesToRun.length} case(s)`);
+  console.log(`  Market Search Tests (Extension) — ${casesToRun.length} case(s)`);
   console.log('='.repeat(60));
 
   const results = [];
@@ -348,9 +360,13 @@ export async function run() {
     try {
       if (page?.isClosed?.()) {
         console.log('  Page was closed, reconnecting CDP...');
-        ({ page } = await connectCDP());
-        await setup(page);
+        ({ browser, page } = await connectExtensionCDP());
       }
+      // Reset state between tests: close any modal, navigate back to Market
+      await page.keyboard.press('Escape').catch(() => {});
+      await sleep(300);
+      await goToMarket(page);
+
       const result = await test.fn(page);
       const duration = Date.now() - startTime;
       const r = {
@@ -375,13 +391,12 @@ export async function run() {
       };
       console.error(`>> ${test.id}: FAILED (${(duration / 1000).toFixed(1)}s) — ${error.message}`);
       if (page && !page?.isClosed?.()) {
-        await screenshot(page, SCREENSHOT_DIR, `${test.id}-error`);
+        await screenshotExt(page, `${test.id}-error`);
       }
       writeFileSync(resolve(RESULTS_DIR, `${test.id}.json`), JSON.stringify(r, null, 2));
       results.push(r);
     }
 
-    try { if (page && !page?.isClosed?.()) await dismissOverlays(page); } catch {}
     await sleep(800);
   }
 
@@ -393,12 +408,13 @@ export async function run() {
   console.log('='.repeat(60));
 
   const summary = { timestamp: new Date().toISOString(), total: results.length, passed, failed, results };
-  writeFileSync(resolve(RESULTS_DIR, 'market-search-summary.json'), JSON.stringify(summary, null, 2));
+  writeFileSync(resolve(RESULTS_DIR, 'ext-market-search-summary.json'), JSON.stringify(summary, null, 2));
 
   return { status: failed === 0 ? 'passed' : 'failed', passed, failed, total: results.length };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isMain = !process.argv[1] || process.argv[1] === new URL(import.meta.url).pathname;
+if (isMain) {
   run().then(r => process.exit(r.status === 'passed' ? 0 : 1))
     .catch(e => { console.error('Fatal:', e); process.exit(2); });
 }

@@ -177,6 +177,123 @@ if (isMain) run().catch(e => { console.error(e); process.exit(1); });
 7. **data-testid 优先** — 然后 text/role → 最后 JS evaluate
 8. **不关闭 browser** — 那是用户的 OneKey 实例
 
+### 3.2.x 弹窗交互编码规范（强制 — 来自 Market Search 复盘）
+
+以下三类 bug 曾导致脚本完全无法执行，生成脚本时**必须逐条检查**：
+
+#### Bug 1：触发元素 vs 弹窗内元素混淆
+
+OneKey 的搜索、选择器等 UI 模式：点击头部元素 → 打开 `APP-Modal-Screen` 弹窗 → 弹窗内有**独立的**输入框和操作按钮。
+
+**错误写法**（反复点击触发元素）：
+```javascript
+// ❌ 每次搜索都重新点击头部搜索框 → 反复关闭/重开弹窗
+async function search(page, value) {
+  await page.click('[data-testid="nav-header-search"]'); // 每次都打开新弹窗
+  await page.fill('[data-testid="nav-header-search"]', value); // 填到了头部输入框
+}
+```
+
+**正确写法**（分离打开 vs 操作）：
+```javascript
+// ✅ 只在弹窗未打开时点击触发元素，后续操作定位弹窗内部
+async function openSearchModal(page) {
+  const isOpen = await page.evaluate(() => {
+    const m = document.querySelector('[data-testid="APP-Modal-Screen"]');
+    return m && m.getBoundingClientRect().width > 0;
+  });
+  if (isOpen) return; // 已打开则不重复触发
+  await page.click('[data-testid="nav-header-search"]');
+  await sleep(800);
+}
+
+function getModalInput(page) {
+  return page.locator('[data-testid="APP-Modal-Screen"] input').first();
+}
+```
+
+**检查清单**：
+- [ ] 脚本中是否有"触发弹窗的元素"被多次点击？
+- [ ] 弹窗打开后，后续操作是否都定位到 `APP-Modal-Screen` 内部？
+- [ ] 写脚本前是否用 CDP 探测过弹窗内部结构？
+
+#### Bug 2：React 输入方式不兼容
+
+OneKey 是 React 应用，常规的 `nativeInputValueSetter` 和 `page.keyboard.type()` 都无法可靠触发 React 状态更新。
+
+**错误写法**：
+```javascript
+// ❌ nativeInputValueSetter — React 不响应
+const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+nativeSet.call(input, 'BTC');
+input.dispatchEvent(new Event('input', { bubbles: true }));
+
+// ❌ page.keyboard.type — CDP Electron 中不可靠
+await page.keyboard.type('BTC');
+
+// ❌ Meta+a 清空 — 触发 Electron 全局快捷键
+await page.keyboard.press('Meta+a');
+```
+
+**正确写法**：
+```javascript
+// ✅ locator.pressSequentially — 唯一可靠方式
+const modalInput = page.locator('[data-testid="APP-Modal-Screen"] input').first();
+await modalInput.click();
+// 清空：用 input.select() + Backspace（不用 Meta+a）
+await page.evaluate(() => {
+  const modal = document.querySelector('[data-testid="APP-Modal-Screen"]');
+  const input = modal?.querySelector('input');
+  if (input) { input.focus(); input.select(); }
+});
+await page.keyboard.press('Backspace');
+// 输入：用 pressSequentially
+await modalInput.pressSequentially('BTC', { delay: 40 });
+```
+
+**检查清单**：
+- [ ] 是否使用了 `nativeInputValueSetter`？→ 改为 `pressSequentially`
+- [ ] 是否使用了 `page.keyboard.type()`？→ 改为 `locator.pressSequentially()`
+- [ ] 是否使用了 `Meta+a` 清空？→ 改为 `input.select()` + `Backspace`
+
+#### Bug 3：异步结果未轮询等待
+
+搜索/过滤结果通过 API 异步返回，固定 `sleep()` 不可靠（尤其冷启动场景）。
+
+**错误写法**：
+```javascript
+// ❌ 固定等待 — 网络慢时必然失败
+await sleep(900);
+const ok = hasContent(page);
+if (!ok) throw new Error('No results');
+```
+
+**正确写法**：
+```javascript
+// ✅ 轮询重试 — 最多 10 次 × 500ms
+for (let i = 0; i < 10; i++) {
+  const ok = await page.evaluate(() => {
+    const modal = document.querySelector('[data-testid="APP-Modal-Screen"]');
+    const text = modal?.textContent || '';
+    return text.includes('$') || text.includes('未找到') || text.includes('暂无');
+  });
+  if (ok) return;
+  await sleep(500);
+}
+throw new Error('Results not loaded');
+```
+
+**检查清单**：
+- [ ] 搜索/过滤后的断言是否有重试机制？
+- [ ] 重试次数是否 >= 8（覆盖冷启动场景）？
+- [ ] 是否同时检测了"有结果"和"空状态"两种合法情况？
+
+#### 附加：弹窗 backdrop 拦截
+
+`APP-Modal-Screen` 打开时 `app-modal-stacks-backdrop` 覆盖全屏，拦截弹窗外点击。需要操作弹窗外元素时：
+- 方案 A：先 `closeSearch(page)` 关闭弹窗
+- 方案 B：用 `page.evaluate()` 在弹窗内找等价元素并 JS 点击
+
 ### 3.2.1 参数化覆盖（强制）
 
 当同一场景存在多个“等价输入参数”（例如搜索 Symbol：BTC/ETH/SOL；异常输入：特殊字符/emoji/空格），**生成用例与脚本时必须参数化并展开覆盖**，不得只录制/只实现其中一个参数就宣称覆盖完成。
@@ -220,6 +337,12 @@ node /Users/chole/onekey-agent-test/src/tests/<feature>/<name>.test.mjs
 - 关闭 browser 连接
 - 用 `open` 命令启动 OneKey
 - 不经确认直接生成测试
+- 用 `nativeInputValueSetter` 设置 React 输入框的值
+- 用 `page.keyboard.type()` 替代 `locator.pressSequentially()`
+- 用 `Meta+a` 清空输入框（Electron 快捷键冲突）
+- 对弹窗触发元素反复点击（应检测弹窗是否已打开）
+- 搜索/过滤后用固定 `sleep()` 代替轮询等待
+- 修改脚本后不重启 Dashboard 就直接执行
 
 ## 关键路径
 

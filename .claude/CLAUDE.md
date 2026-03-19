@@ -94,5 +94,32 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 - **Token 正则需兼容数字**：代币名可能包含数字（如 XYZ100），正则用 `/^[A-Z][A-Z0-9]{1,9}$/` 而非 `/^[A-Z]{2,10}$/`。
 - **DOM 选择器要限定区域**：顶部行情栏的选择器必须加 `r.y < 100` 位置过滤，避免匹配到页面其他区域的同名元素。
 
+### 弹窗/Modal 交互规则（严格执行）
+> 来源：Market 搜索脚本三大 bug 的复盘总结。
+
+1. **区分"触发元素"与"弹窗内元素"**
+   - OneKey 中很多交互是：点击头部/侧栏元素 → 弹出 `APP-Modal-Screen` 弹窗 → 弹窗内有独立的输入框/按钮。
+   - **严禁**对同一个触发元素反复点击来"刷新"弹窗。打开弹窗后，后续所有操作必须定位到弹窗**内部**的元素。
+   - 写脚本前必须先用 CDP 探测弹窗结构：`document.querySelector('[data-testid="APP-Modal-Screen"]')` 是否存在、内部有哪些可交互元素。
+
+2. **输入方式：必须用 `locator.pressSequentially()`**
+   - OneKey 基于 React，`nativeInputValueSetter` + `dispatchEvent` **无法触发 React 搜索/过滤**。
+   - `page.keyboard.type()` 在 CDP 连接的 Electron 应用中也可能不生效。
+   - **唯一可靠方式**：`locator.pressSequentially(value, { delay: 30~80 })`，通过 Playwright locator 逐字符分发真实按键事件。
+   - 清空输入框用 `input.select()` + `Backspace`，**禁止用 `Meta+a`**（会触发 Electron 全局快捷键）。
+
+3. **异步结果必须轮询等待**
+   - 搜索/过滤结果通过 API 异步返回，固定 `sleep()` 不可靠。
+   - **必须用轮询重试**：最多 N 次（建议 8~10），每次间隔 500ms，检查弹窗内容是否包含预期标志（`$` 符号、地址格式、空状态文本等）。
+   - 首次打开弹窗（冷启动）可能需要更长时间加载热门数据，重试次数不能太少。
+
+4. **弹窗 backdrop 会拦截外部点击**
+   - `APP-Modal-Screen` 打开时，`app-modal-stacks-backdrop` 覆盖全屏，拦截所有弹窗外的点击。
+   - 如果需要操作弹窗外的元素（如列表页的收藏按钮），**必须先关闭弹窗**，或者用 `page.evaluate()` 在弹窗内部查找等价元素并通过 JS 点击。
+
+5. **Dashboard 热更新**
+   - Dashboard (`src/dashboard/server.ts`) 使用 ESM `import()` 动态加载测试模块，Node.js 会缓存模块。
+   - **修改测试脚本后必须重启 Dashboard**（`pkill -f "tsx src/dashboard"` 然后重新启动），否则执行的还是旧代码。
+
 ## Task Status Flow
 pending → in_progress → completed | failed | blocked

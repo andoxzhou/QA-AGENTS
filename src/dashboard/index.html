@@ -28,6 +28,15 @@
   .conn-label.connected { color: var(--green); }
   .conn-label.disconnected { color: var(--red); }
 
+  /* Platform Switcher */
+  .platform-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 24px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .platform-label { font-size: 12px; color: var(--text2); }
+  .platform-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 6px; padding: 2px; }
+  .platform-tab { border: none; border-radius: 4px; padding: 5px 16px; font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer; background: transparent; color: var(--text2); transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .platform-tab:hover { color: var(--text); }
+  .platform-tab.active { background: var(--accent); color: #fff; }
+  .platform-tab .platform-count { font-size: 10px; opacity: 0.7; }
+
   /* Control Bar */
   .control-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; position: relative; z-index: 20; }
   .selected-count { font-size: 12px; color: var(--text2); min-width: 120px; }
@@ -167,6 +176,22 @@
   </div>
 </div>
 
+<!-- Platform Switcher -->
+<div class="platform-bar">
+  <span class="platform-label">测试平台</span>
+  <div class="platform-tabs" id="platformTabs">
+    <button class="platform-tab active" data-platform="desktop" onclick="switchPlatform('desktop')">
+      &#9109; 桌面端 <span class="platform-count" id="countDesktop"></span>
+    </button>
+    <button class="platform-tab" data-platform="web" onclick="switchPlatform('web')">
+      &#9784; Web端 <span class="platform-count" id="countWeb"></span>
+    </button>
+    <button class="platform-tab" data-platform="extension" onclick="switchPlatform('extension')">
+      &#10697; 插件端 <span class="platform-count" id="countExtension"></span>
+    </button>
+  </div>
+</div>
+
 <!-- Control Bar -->
 <div class="control-bar">
   <div class="selected-count" id="selectedCount">已选择 <strong>0</strong> 个用例</div>
@@ -224,24 +249,56 @@
 <script>
 // ---- State ----
 let state = 'idle'; // idle | running | paused | finished
-let registry = [];   // from /api/tests
+let registryAll = [];  // full registry from /api/tests
+let registry = [];     // filtered by platform
 let selected = new Set();
 let queueItems = []; // { id, name, status, duration, error }
 let expandedGroups = new Set();
 let allSelected = false;
 let connectedSSE = false;
+let currentPlatform = 'desktop'; // 'desktop' | 'web'
 let evtSource = null;
 let runStartTime = null;
 let runElapsed = 0;
 let timerInterval = null;
 
+// ---- Platform Switcher ----
+function switchPlatform(platform) {
+  if (state === 'running') return; // Don't switch while running
+  currentPlatform = platform;
+  // Update tab UI
+  document.querySelectorAll('.platform-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.platform === platform);
+  });
+  // Filter registry and reset selection
+  applyPlatformFilter();
+  selected.clear();
+  renderTree();
+  renderControls();
+}
+
+function applyPlatformFilter() {
+  registry = registryAll.filter(g => g.platform === currentPlatform);
+  expandedGroups.clear();
+  registry.forEach(g => expandedGroups.add(g.file || g.group));
+}
+
+function updatePlatformCounts() {
+  const desktopCount = registryAll.filter(g => g.platform === 'desktop').reduce((n, g) => n + (g.cases?.length || 0), 0);
+  const webCount = registryAll.filter(g => g.platform === 'web').reduce((n, g) => n + (g.cases?.length || 0), 0);
+  const extCount = registryAll.filter(g => g.platform === 'extension').reduce((n, g) => n + (g.cases?.length || 0), 0);
+  document.getElementById('countDesktop').textContent = desktopCount > 0 ? `(${desktopCount})` : '';
+  document.getElementById('countWeb').textContent = webCount > 0 ? `(${webCount})` : '';
+  document.getElementById('countExtension').textContent = extCount > 0 ? `(${extCount})` : '';
+}
+
 // ---- Fetch Registry ----
 async function fetchRegistry() {
   try {
     const res = await fetch('/api/tests');
-    registry = await res.json();
-    // Expand all groups by default
-    registry.forEach(g => expandedGroups.add(g.file || g.group));
+    registryAll = await res.json();
+    applyPlatformFilter();
+    updatePlatformCounts();
     renderTree();
     setConnection(true);
   } catch (e) {
@@ -396,6 +453,7 @@ function toggleCategorySelect(catKey, checked) {
     }
   });
   renderTree();
+  renderControls();
 }
 
 function escHtml(s) {

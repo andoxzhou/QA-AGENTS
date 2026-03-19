@@ -58,13 +58,15 @@ export async function getTestRegistry(): Promise<TestGroup[]> {
 
       const rel = relative(TESTS_DIR, file);
       const parts = rel.replace(/\.test\.mjs$/, '').split('/');
-      const platform = parts[0] === 'android' ? 'android' : 'desktop';
+      const knownPlatforms = ['desktop', 'android', 'web', 'extension'];
+      const platform = knownPlatforms.includes(parts[0]) ? parts[0] : 'desktop';
 
       // Normalize path: "{platform}/{module}/{feature}"
       // Example: "desktop/perps/favorites" → category: "Perps", group: "Favorites"
-      // Example: "desktop/settings/theme-switch" → category: "Settings", group: "Theme Switch"
-      const moduleSeg = parts[0] === 'desktop' || parts[0] === 'android' ? parts[1] : parts[0];
-      const featureSeg = parts[0] === 'desktop' || parts[0] === 'android' ? parts[2] : parts[1];
+      // Example: "web/market/chart" → category: "Market", group: "Chart"
+      const isPlatformDir = knownPlatforms.includes(parts[0]);
+      const moduleSeg = isPlatformDir ? parts[1] : parts[0];
+      const featureSeg = isPlatformDir ? parts[2] : parts[1];
 
       const category = moduleSeg ? capitalize(moduleSeg) : 'Other';
       const group = featureSeg ? titleizeSegment(featureSeg) : category;
