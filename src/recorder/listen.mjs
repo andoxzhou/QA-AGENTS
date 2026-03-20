@@ -48,11 +48,50 @@ async function connectCDP() {
     const resp = await fetch(`${CDP_URL}/json/version`);
     if (!resp.ok) throw new Error('CDP not responding');
   } catch {
-    recorderState = 'disconnected';
-    cdpConnected = false;
+    // CDP not responding — try to restart OneKey automatically
+    console.log('  [CDP] Not responding, attempting to restart OneKey...');
     broadcastStatus();
-    console.log('  [CDP] Not responding');
-    return false;
+    try {
+      const { execSync, spawn: spawnProc } = await import('node:child_process');
+      const { existsSync } = await import('node:fs');
+      const ONEKEY_BIN = '/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey';
+      execSync('pkill -f "OneKey" 2>/dev/null', { stdio: 'ignore' }).toString();
+      await new Promise(r => setTimeout(r, 2000));
+      if (existsSync(ONEKEY_BIN)) {
+        const child = spawnProc(ONEKEY_BIN, ['--remote-debugging-port=9222'], { detached: true, stdio: 'ignore' });
+        child.unref();
+        console.log('  [CDP] OneKey restarting...');
+        // Wait for CDP to come up
+        for (let i = 0; i < 15; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          try {
+            const r2 = await fetch(`${CDP_URL}/json/version`);
+            if (r2.ok) { console.log(`  [CDP] OneKey ready after ${i + 1}s`); break; }
+          } catch {}
+        }
+        // Re-check
+        const check = await fetch(`${CDP_URL}/json/version`).catch(() => null);
+        if (!check?.ok) {
+          recorderState = 'disconnected';
+          cdpConnected = false;
+          broadcastStatus();
+          console.log('  [CDP] OneKey restart failed');
+          return false;
+        }
+      } else {
+        recorderState = 'disconnected';
+        cdpConnected = false;
+        broadcastStatus();
+        console.log('  [CDP] OneKey binary not found');
+        return false;
+      }
+    } catch (e) {
+      recorderState = 'disconnected';
+      cdpConnected = false;
+      broadcastStatus();
+      console.log('  [CDP] Restart failed:', e.message);
+      return false;
+    }
   }
 
   try {
