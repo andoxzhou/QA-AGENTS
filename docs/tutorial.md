@@ -1,60 +1,188 @@
 # OneKey QA-AGENTS 使用教程
 
-## 快速开始
+## 完整工作流程
+
+```
+从用例文档到自动化回归，只需要 3 步：
+
+1. 录制：@用例文件 开始录制 → 在 App 上操作 → 确认步骤
+2. 生成：自动生成测试脚本 → 自动验证通过
+3. 回归：qatest 开始执行 → 勾选用例 → 一键执行
+```
+
+---
+
+## 1. 录制用例（从用例文档到测试脚本）
+
+### 1.1 启动录制
+
+在 Claude Code 对话中输入：
+
+```
+@docs/qa/testcases/cases/market/xxx.md 开始录制，录制桌面端
+```
+
+**AI 会自动完成：**
+- 读取用例文件，分析测试场景
+- 启动 OneKey CDP 连接（自动检测，断开自动重启）
+- 启动录制器（监控页面 `http://localhost:3210`）
+- 根据用例编排录制计划，列出要录制的场景清单
+- 引导你操作第一个场景
+
+### 1.2 录制操作
+
+按 AI 的引导在 OneKey App 上操作。录制器会自动捕获每次点击和输入。
+
+**录制监控页面**（`http://localhost:3210`）实时显示：
+- **CDP 状态**：绿点 = 连接正常，红点 = 断开
+- **录制器状态**：Recording / Disconnected
+- **操作列表**：每一步的元素、选择器、坐标
+- **Reconnect 按钮**：断开时一键重连
+
+### 1.3 确认步骤
+
+操作完一个场景后，回复 AI：**"录完了"**
+
+AI 会列出录制到的所有操作步骤：
+
+```
+录制步骤确认（场景①：观察列表收藏）：
+
+| # | 操作 | 说明 |
+|---|------|------|
+| 1 | 点击「市场」侧栏 | data-testid="Desktop-AppSideBar-..." |
+| 2 | 点击星标 ⭐ | 收藏第一个 Token |
+| 3 | 点击「自选」tab | 验证收藏列表 |
+| ... | | |
+
+请确认顺序和完整性是否正确？
+```
+
+### 1.4 你可以做的事
+
+- **确认**：回复"对"、"正确"、"确认"→ 继续下一个场景
+- **纠正**：说明哪一步不对，AI 会修正
+- **补充断言**：说明需要额外验证什么（如"这里需要验证网络没有变"）
+- **补充条件**：说明变量条件（如"如果已连接就跳过连接步骤"）
+- **补充 DApp 侧操作**：录制器捕获不到 DApp 网页内的操作，口述补充
+
+### 1.5 全部录制完毕
+
+所有场景确认后，AI 自动：
+
+1. **生成测试脚本** → `src/tests/<平台>/<模块>/<功能>.test.mjs`
+2. **运行验证** → 确保脚本能通过
+3. **注册到 Dashboard** → 重启 Dashboard 后面板自动发现新用例
+
+> **注意：** 操作涉及第三方网页内的交互（如 DApp 内点击 Connect Wallet）时，AI 会提前说明该部分无法自动化，避免录制后才发现不可行。
+
+---
+
+## 2. 执行用例（回归测试）
+
+### 2.1 打开执行面板
+
+在 Claude Code 对话中输入：
+
+```
+qatest 开始执行
+```
+
+AI 会自动：
+- 检查/启动 OneKey CDP
+- 启动 Dashboard（`http://localhost:5050`）
+
+### 2.2 在面板中执行
+
+打开 `http://localhost:5050`：
+
+1. **切换平台**：顶部 tab —— 桌面端 / Web端 / 插件端
+2. **勾选用例**：左侧树形列表，可勾选单个用例或整个分类
+3. **开始执行**：点击 **▶ 开始执行**
+4. **查看结果**：右侧实时显示每个用例的执行状态，失败可点击查看详情
+
+### 2.3 CLI 直接执行
 
 ```bash
-# 1. 启动测试执行面板
-npx tsx src/dashboard/server.ts
-# 打开 http://localhost:5050 → 选平台 → 勾选用例 → 开始执行
+# 跑单个用例
+node src/tests/desktop/market/search.test.mjs MARKET-SEARCH-002
 
-# 2. 或直接 CLI 执行
-node src/tests/desktop/market/search.test.mjs                    # 跑全部
-node src/tests/desktop/market/search.test.mjs MARKET-SEARCH-002  # 跑单个
+# 跑整个模块
+node src/tests/desktop/market/search.test.mjs
+
+# Web 端
+node src/tests/web/market/chart.test.mjs MARKET-CHART-001
+
+# 插件端
+node src/tests/extension/market/search.test.mjs
 ```
 
 ---
 
-## 1. 整体架构
+## 3. 快捷指令速查
 
-```
-┌─────────────────────────────────────────────────┐
-│                 Dashboard (5050)                 │
-│   桌面端 (26) │ Web端 (8) │ 插件端 (5)          │
-└─────────┬───────────┬──────────────┬────────────┘
-          │           │              │
-     CDP 9222    CDP 9223       CDP 9224
-     OneKey      Chrome         Chrome+Extension
-     Electron    onekeytest.com  jnmbo...hlhcj
-```
+直接在 Claude Code 对话中输入，支持中文自然语言：
 
-**三层 Agent 架构：**
-- **决策层** `/onekey-qa-director` — 唯一入口，总协调
-- **智能层** `/onekey-test-designer` → `/onekey-knowledge-builder` → `/onekey-qa-manager`
-- **执行层** `/onekey-runner` · `/onekey-recorder` · `/onekey-reporter`
+### 录制相关
+
+| 输入 | 效果 |
+|------|------|
+| `@用例文件.md 开始录制` | 读取用例 → 启动 CDP + 录制器 → 展示录制计划 → 引导逐场景录制 |
+| `开始录制` | 启动录制器，手动操作 App |
+| `录完了` | 展示录制步骤细节，等待确认 |
+| `录制测试` | 完整流程：录制 → 确认 → 生成脚本 → 验证 |
+
+### 执行相关
+
+| 输入 | 效果 |
+|------|------|
+| `qatest 开始执行` | 启动 CDP + Dashboard → 打开执行面板 |
+| `打开执行面板` | 同上 |
+| `跑测试` | 总调度：执行 → 汇总结果 → 失败时诊断 |
+| `执行测试 MARKET-SEARCH-002` | CLI 执行指定用例 |
+
+### 诊断相关
+
+| 输入 | 效果 |
+|------|------|
+| `诊断失败` | 分析最近的失败用例，给出根因和修复建议 |
+| `为什么失败 MARKET-FAV-003` | 分析指定用例的失败原因 |
+| `更新选择器` | 修复失效的 DOM 选择器 |
+| `生成报告` | 生成测试质量报告 |
+
+### 设计相关
+
+| 输入 | 效果 |
+|------|------|
+| `设计用例` | 从 PRD 分析需求，设计测试场景 |
+| `写用例` | 同上 |
+| `新增测试` | 同上 |
 
 ---
 
-## 2. 环境配置
+## 4. 环境配置
 
-### 2.1 必须的软件
+### 4.1 必须的软件
 
-| 软件 | 用途 | 路径/端口 |
-|------|------|-----------|
-| OneKey Desktop | 桌面端测试 | `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey` |
-| Google Chrome | Web/插件端 | `/Applications/Google Chrome.app/` |
-| Node.js 20+ | 运行测试 | `node` |
-| playwright-core | CDP 连接 | `npm install` |
+| 软件 | 用途 |
+|------|------|
+| OneKey Desktop | 桌面端测试（自动启动） |
+| Google Chrome | Web/插件端测试（自动启动） |
+| Node.js 20+ | 运行测试和 Dashboard |
+| playwright-core | CDP 连接（`npm install`） |
 
-### 2.2 CDP 端口分配
+### 4.2 CDP 端口分配
 
-| 平台 | 端口 | 启动方式 |
-|------|------|----------|
-| 桌面端 | 9222 | 自动启动 OneKey |
-| Web 端 | 9223 | 自动启动 Chrome（复制用户 profile） |
-| 插件端 | 9224 | 自动启动 Chrome（复制完整 Chrome 数据目录） |
-| Dashboard | 5050 | `npx tsx src/dashboard/server.ts` |
+| 平台 | 端口 | 说明 |
+|------|------|------|
+| 桌面端 | 9222 | 连接 OneKey Electron |
+| Web 端 | 9223 | 连接 Chrome（自动复制用户 profile） |
+| 插件端 | 9224 | 连接 Chrome（复制完整数据目录，保留扩展） |
+| Dashboard | 5050 | 测试执行面板 |
+| 录制器 | 3210 | 桌面端录制监控 |
+| 录制器 | 3211 | Web 端录制监控 |
 
-### 2.3 环境变量（可选）
+### 4.3 环境变量（可选）
 
 ```bash
 CDP_URL=http://127.0.0.1:9222        # 桌面端 CDP
@@ -67,255 +195,71 @@ WALLET_PASSWORD=1234567890-=          # 钱包密码
 
 ---
 
-## 3. 三种执行方式
-
-### 方式一：Dashboard 执行面板（推荐）
-
-```bash
-npx tsx src/dashboard/server.ts
-```
-
-打开 `http://localhost:5050`：
-1. 顶部切换平台：**桌面端** / **Web端** / **插件端**
-2. 左侧勾选要执行的用例
-3. 点击 **▶ 开始执行**
-4. 右侧实时查看执行状态，失败可点击查看详情
-
-> **注意：** 修改测试脚本后必须重启 Dashboard（ESM 模块缓存）：
-> ```bash
-> pkill -f "tsx src/dashboard" && npx tsx src/dashboard/server.ts
-> ```
-
-### 方式二：CLI 直接执行
-
-```bash
-# 桌面端
-node src/tests/desktop/market/search.test.mjs
-node src/tests/desktop/market/search.test.mjs MARKET-SEARCH-002
-
-# Web 端
-node src/tests/web/market/search.test.mjs
-node src/tests/web/market/chart.test.mjs MARKET-CHART-001
-
-# 插件端
-node src/tests/extension/market/search.test.mjs EXT-MARKET-SEARCH-003
-```
-
-### 方式三：Claude 快捷指令
-
-直接在 Claude Code 对话中输入以下指令即可触发对应功能，也支持中文自然语言触发：
-
-#### 执行用例
-
-| 指令 | 中文触发 | 说明 |
-|------|---------|------|
-| `/qatest` | `qatest 开始执行`、`打开执行面板`、`开始执行用例` | 一键启动 CDP + Dashboard，引导在面板勾选用例执行 |
-| `/onekey-runner` | `执行测试`、`run case`、`run test` | 通过 Dashboard 或 CLI 执行指定用例 |
-| `/onekey-qa-director` | `跑测试`、`执行用例`、`回归测试` | 总调度：启动执行 → 汇总结果 → 失败时协调诊断 |
-
-#### 录制用例
-
-| 指令 | 中文触发 | 说明 |
-|------|---------|------|
-| `/onekey-recorder` | `录制`、`record`、`开始录制` | 启动 CDP 录制器，捕获用户操作生成步骤清单 |
-| `/onekey-record-from-file` | `发文件开始录制`、`用例开始录制` | 读取用例文件（@引用），编排场景后引导录制 |
-| `/onekey-record-to-test` | `录制测试`、`录制到测试` | 完整流程：录制 → 确认操作 → 生成测试脚本 → 执行验证 |
-
-#### 设计与诊断
-
-| 指令 | 中文触发 | 说明 |
-|------|---------|------|
-| `/onekey-test-designer` | `设计用例`、`写用例`、`新增测试` | 从 PRD 分析需求 → 引导录制 → 生成测试脚本 |
-| `/onekey-qa-manager` | `诊断失败`、`分析结果`、`为什么失败` | 失败根因分析，只诊断不改代码 |
-| `/onekey-knowledge-builder` | `更新选择器`、`修复选择器`、`update ui-map` | 选择器修复、UI 映射维护 |
-| `/onekey-reporter` | `生成报告`、`测试报告`、`quality report` | 跨 feature 汇总报告、趋势分析 |
-
-#### 常用操作示例
-
-```
-# 打开执行面板
-> qatest 开始执行
-
-# 读取用例文件并开始录制
-> @docs/qa/testcases/cases/market/xxx.md 开始录制
-
-# 诊断失败原因
-> 诊断失败 MARKET-SEARCH-002
-
-# 跑全部桌面端用例
-> 跑测试
-```
-
----
-
-## 4. 录制与生成脚本
-
-### 4.1 标准流程
-
-```
-录制操作 → 确认步骤清单 → 生成测试脚本
-```
-
-#### Step 1: 启动录制
-
-```bash
-# 桌面端录制（连接 OneKey，监控 UI 在 3210）
-node src/recorder/listen.mjs
-
-# Web 端录制（连接 Chrome，监控 UI 在 3211）
-node src/recorder/listen-web.mjs
-```
-
-#### Step 2: 在应用上操作
-
-在 OneKey 桌面端 / Web 页面上正常操作，录制器自动捕获点击、输入等事件。
-
-#### Step 3: 确认操作清单
-
-告诉 Claude "录制完了"，会列出所有捕获的操作：
-
-```
-录制步骤确认：
-1. 点击 [Market 侧栏] — selector: [data-testid="tab-modal-..."]
-2. 点击 [搜索框] — selector: input[data-testid="nav-header-search"]
-3. 输入 [BTC] — selector: input
-4. 点击 [BTC 结果行] — selector: div.row
-...
-请确认以上步骤顺序和完整性。
-```
-
-**必须确认后才能继续。**
-
-#### Step 4: 生成测试脚本
-
-确认后自动生成：
-- 测试脚本 → `src/tests/<platform>/<module>/<feature>.test.mjs`
-- 更新 UI Map → `shared/ui-map.json`
-- 更新用例定义 → `shared/test_cases.json`
-
-### 4.2 录制监控 UI
-
-- 桌面端：`http://localhost:3210`
-- Web 端：`http://localhost:3211`
-
-实时查看录制的每一步，支持删除误操作的步骤。
-
----
-
-## 5. 测试脚本编写规范
-
-### 5.1 文件结构
-
-```javascript
-import { connectCDP, sleep, screenshot, RESULTS_DIR } from '../../helpers/index.mjs';
-
-export const testCases = [
-  {
-    id: 'FEATURE-001',
-    name: '功能描述',
-    fn: async (page) => {
-      // 测试逻辑，只接收 page 参数
-    },
-  },
-];
-
-export async function setup(page) {
-  // 前置条件（只执行一次，缓存结果）
-}
-```
-
-### 5.2 关键规则
-
-| 规则 | 正确 | 错误 |
-|------|------|------|
-| 输入方式 | `locator.pressSequentially('BTC', {delay:40})` | `nativeInputValueSetter` / `keyboard.type()` |
-| 清空输入 | `input.select()` + `Backspace` | `Meta+a`（触发 Electron 快捷键） |
-| 弹窗操作 | 先检查 `isSearchModalOpen`，只在未打开时点击触发元素 | 每次都点击触发元素（反复开关弹窗） |
-| 等待结果 | 轮询重试 10 次 × 500ms | 固定 `sleep(900)` |
-| 截图 | 仅在失败时 | 每步都截图（严重拖慢） |
-| 用例粒度 | 一个连贯操作流 = 一个用例 | 把搜索、切 tab、验证拆成多个用例 |
-
-### 5.3 弹窗交互模式（重要）
-
-OneKey 的搜索等功能是弹窗模式：点击触发元素 → 打开 `APP-Modal-Screen` → 内部有独立的输入框和按钮。
-
-```javascript
-// ✅ 正确：分离打开和操作
-async function openSearchModal(page, triggerFn) {
-  if (await isSearchModalOpen(page)) return;  // 已打开就不重复
-  await triggerFn(page);                       // 只在需要时触发
-  await sleep(800);
-}
-
-// ✅ 正确：定位弹窗内部元素
-const modalInput = page.locator('[data-testid="APP-Modal-Screen"] input').first();
-await modalInput.pressSequentially('BTC', { delay: 40 });
-
-// ❌ 错误：反复点击触发元素
-await page.click('[data-testid="nav-header-search"]');  // 每次搜索都重新打开
-```
-
-### 5.4 跨平台复用
-
-搜索等通用功能的核心逻辑在 `helpers/market-search.mjs`，三端复用：
-
-```javascript
-// 共享逻辑
-import { openSearchModal, setSearchValueStrict, ... } from '../../helpers/market-search.mjs';
-
-// 平台特有：触发搜索的方式
-// 桌面端：点击头部 input
-// Web 端：点击搜索图标按钮（SVG magnifying glass）
-// 插件端：先尝试 input，fallback 到图标
-async function openSearchTrigger(page) { /* 平台特有实现 */ }
-
-// 绑定后使用
-const _set = (page, v) => setSearchValueStrict(page, v, openSearchTrigger);
-```
-
----
-
-## 6. 目录结构速查
+## 5. 目录结构
 
 ```
 src/tests/
-├── helpers/
+├── helpers/                   # 共享工具
 │   ├── index.mjs              # CDP 连接、截图、通用工具
-│   ├── market-search.mjs      # 搜索功能共享逻辑（16 个函数）
-│   ├── extension-cdp.mjs      # 插件端 CDP 连接
-│   ├── navigation.mjs         # 页面导航
-│   ├── accounts.mjs           # 账户/解锁
-│   ├── network.mjs            # 网络切换
-│   ├── transfer.mjs           # 转账
-│   └── preconditions.mjs      # 前置条件框架
-├── desktop/                   # 桌面端用例
-│   ├── market/search.test.mjs
-│   ├── perps/{favorites,token-search}.test.mjs
-│   ├── settings/{lang,theme}.test.mjs
-│   ├── transfer/cosmos.test.mjs
-│   ├── wallet/create-mnemonic.test.mjs
-│   └── referral/bind-invite-code.test.mjs
-├── web/                       # Web 端用例
-│   └── market/{search,chart}.test.mjs
-└── extension/                 # 插件端用例
-    └── market/search.test.mjs
+│   ├── market-search.mjs      # 搜索功能共享逻辑（三端复用）
+│   └── extension-cdp.mjs      # 插件端 CDP 连接
+├── desktop/                   # 桌面端用例 (CDP 9222)
+│   ├── market/
+│   │   ├── search.test.mjs    # 搜索 MARKET-SEARCH-001~005
+│   │   └── favorite.test.mjs  # 收藏 MARKET-FAV-001~006
+│   ├── perps/                 # 合约
+│   ├── settings/              # 设置
+│   ├── transfer/              # 转账
+│   ├── wallet/                # 钱包
+│   └── referral/              # 返佣
+├── web/                       # Web 端用例 (CDP 9223)
+│   └── market/
+│       ├── search.test.mjs    # WEB-MARKET-SEARCH-001~005
+│       └── chart.test.mjs     # MARKET-CHART-001~003
+└── extension/                 # 插件端用例 (CDP 9224)
+    └── market/
+        └── search.test.mjs    # EXT-MARKET-SEARCH-001~005
 
 src/recorder/
-├── listen.mjs                 # 桌面端录制器 (端口 3210)
-└── listen-web.mjs             # Web 端录制器 (端口 3211)
+├── listen.mjs                 # 桌面端录制器 (3210)
+└── listen-web.mjs             # Web 端录制器 (3211)
 
 src/dashboard/
-├── server.ts                  # Dashboard 服务 (端口 5050)
-├── index.html                 # 执行面板 UI
-├── test-registry.ts           # 用例自动发现
-└── test-executor.ts           # 用例执行引擎
-
-shared/
-├── results/<ID>.json          # 执行结果
-├── ui-map.json                # 选择器映射
-├── test_cases.json            # 用例定义
-└── knowledge.json             # 知识库
+├── server.ts                  # Dashboard (5050)
+├── index.html                 # 执行面板（桌面端/Web端/插件端 tab 切换）
+├── test-registry.ts           # 自动发现用例
+└── test-executor.ts           # 执行引擎
 ```
+
+---
+
+## 6. 脚本编写规范（给 AI 和开发者）
+
+### 核心规则
+
+| 规则 | 正确做法 | 错误做法 |
+|------|---------|---------|
+| 输入方式 | `locator.pressSequentially('BTC', {delay:40})` | `nativeInputValueSetter` / `keyboard.type()` |
+| 清空输入 | `input.select()` + `Backspace` | `Meta+a`（触发 Electron 快捷键） |
+| 弹窗操作 | 先检查是否已打开，未打开才点触发元素 | 每次都点触发元素（反复开关） |
+| 等待结果 | 轮询重试 10 次 × 500ms | 固定 `sleep(900)` |
+| 截图 | 仅在失败时 | 每步都截图 |
+| 用例粒度 | 一个连贯操作流 = 一个用例 | 拆成多个孤立用例 |
+| 条件操作 | 先读当前状态，已在目标则跳过 | 不检查直接操作 |
+
+### 跨平台复用
+
+搜索等通用功能提取到 `helpers/market-search.mjs`，三端共享核心逻辑，只有触发方式不同：
+- 桌面端：点击头部 input
+- Web 端：点击搜索图标按钮
+- 插件端：先尝试 input，fallback 到图标
+
+### 不适合自动化的场景
+
+以下场景 AI 会**提前说明**，不会录制后才发现不可行：
+- DApp 网页内的操作（Connect Wallet 按钮等）— OneKey CDP 无法访问内置浏览器 webview
+- 需要硬件钱包物理交互的操作
+- 需要短信/邮件验证的操作
 
 ---
 
@@ -324,48 +268,34 @@ shared/
 ### CDP 连不上
 
 ```bash
-# 桌面端：重启 OneKey
+# 桌面端
 pkill -f "OneKey" && sleep 2
 /Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey --remote-debugging-port=9222 &
 
-# Web/插件端：先关 Chrome 再启动
+# Web/插件端
 killall "Google Chrome" && sleep 2
 # 脚本会自动启动
 ```
 
 ### Dashboard 执行的是旧代码
 
+修改测试脚本后必须重启 Dashboard：
 ```bash
-# 重启 Dashboard
 pkill -f "tsx src/dashboard" && npx tsx src/dashboard/server.ts
 ```
 
-### 搜索输入无效
-
-确认使用 `locator.pressSequentially()`，不是 `nativeInputValueSetter` 或 `keyboard.type()`。
-
 ### 插件加载失败
 
-插件端需要完整的 Chrome 数据目录（包含登录态和扩展验证）。脚本会自动复制 `~/Library/Application Support/Google/Chrome/` 到 `/tmp/chrome-ext-cdp-profile`。如果失败：
-
 ```bash
-rm -rf /tmp/chrome-ext-cdp-profile  # 清理旧数据
-# 重新运行会自动复制
+rm -rf /tmp/chrome-ext-cdp-profile  # 清理旧数据，重新运行会自动复制
 ```
+
+### 录制器断开
+
+录制监控页面（`http://localhost:3210`）会实时显示 CDP 和录制器状态。断开时点击 **Reconnect** 按钮一键重连。录制器不会超时退出。
 
 ### 测试 ID 规范
 
-格式：`<FEATURE>-<NNN>`（如 `MARKET-SEARCH-001`、`COSMOS-003`）
-
-Web 端加 `WEB-` 前缀，插件端加 `EXT-` 前缀。
-
----
-
-## 8. 新增测试用例流程
-
-1. **录制操作** → `/onekey-recorder` 或 `node src/recorder/listen.mjs`
-2. **确认步骤** → 列出操作清单，用户确认
-3. **生成脚本** → 放到 `src/tests/<platform>/<module>/<feature>.test.mjs`
-4. **CLI 验证** → `node src/tests/.../<feature>.test.mjs`
-5. **重启 Dashboard** → 面板自动发现新用例
-6. **面板执行** → 选择用例，点击执行
+- 桌面端：`MARKET-SEARCH-001`、`MARKET-FAV-003`
+- Web 端：`WEB-MARKET-SEARCH-001`
+- 插件端：`EXT-MARKET-SEARCH-001`
