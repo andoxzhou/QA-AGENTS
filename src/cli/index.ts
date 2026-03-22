@@ -173,13 +173,116 @@ program
     console.log('');
   });
 
+// ─── run-case command ────────────────────────────────────────────────────────
+
+program
+  .command('run-case')
+  .description('Run specific test cases by ID and output JSON results')
+  .argument('<ids...>', 'Test case IDs (e.g. SEARCH-001 SEARCH-002)')
+  .option('--json', 'Output JSON to stdout (default: true)', true)
+  .action(async (ids: string[], options: { json: boolean }) => {
+    const { runCases } = await import('./run-handler.ts');
+    const result = await runCases(ids, options.json);
+    if (options.json) {
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    } else {
+      const icon = result.ok ? chalk.green('PASSED') : chalk.red('FAILED');
+      console.log(`\n  ${icon}  ${result.summary.passed}/${result.summary.total} passed (${result.summary.durationMs}ms)\n`);
+      for (const c of result.cases) {
+        const s = c.status === 'passed' ? chalk.green('PASS') : c.status === 'failed' ? chalk.red('FAIL') : chalk.gray('SKIP');
+        console.log(`  ${s}  ${c.id} — ${c.name}${c.error ? chalk.red(` (${c.error})`) : ''}`);
+      }
+      console.log('');
+    }
+    process.exitCode = result.exitCode;
+  });
+
+// ─── run-suite command ───────────────────────────────────────────────────────
+
+program
+  .command('run-suite')
+  .description('Run a test suite by filter (platform, category, or path prefix)')
+  .argument('<filter>', 'Filter: platform (desktop), category (perps), or path prefix (desktop/perps)')
+  .option('--json', 'Output JSON to stdout (default: true)', true)
+  .action(async (filter: string, options: { json: boolean }) => {
+    const { resolveIds, runCases } = await import('./run-handler.ts');
+    let ids: string[];
+    try {
+      ids = await resolveIds(filter);
+    } catch (e: any) {
+      if (options.json) {
+        process.stdout.write(JSON.stringify({ ok: false, exitCode: 1, error: e.message, cases: [], timestamp: new Date().toISOString() }, null, 2) + '\n');
+      } else {
+        logger.error(e.message);
+      }
+      process.exitCode = 1;
+      return;
+    }
+
+    if (!options.json) {
+      logger.info(`Resolved ${ids.length} case(s) from filter "${filter}": ${ids.join(', ')}`);
+    }
+
+    const result = await runCases(ids, options.json);
+    if (options.json) {
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    } else {
+      const icon = result.ok ? chalk.green('PASSED') : chalk.red('FAILED');
+      console.log(`\n  ${icon}  ${result.summary.passed}/${result.summary.total} passed (${result.summary.durationMs}ms)\n`);
+      for (const c of result.cases) {
+        const s = c.status === 'passed' ? chalk.green('PASS') : c.status === 'failed' ? chalk.red('FAIL') : chalk.gray('SKIP');
+        console.log(`  ${s}  ${c.id} — ${c.name}${c.error ? chalk.red(` (${c.error})`) : ''}`);
+      }
+      console.log('');
+    }
+    process.exitCode = result.exitCode;
+  });
+
+// ─── preflight command ───────────────────────────────────────────────────────
+
+program
+  .command('preflight')
+  .description('Check environment readiness (CDP, wallet, network, preconditions)')
+  .option('--ids <ids>', 'Comma-separated test case IDs to check preconditions for')
+  .option('--json', 'Output JSON to stdout (default: true)', true)
+  .action(async (options: { ids?: string; json: boolean }) => {
+    const { runPreflight } = await import('./preflight-handler.ts');
+    const caseIds = options.ids ? options.ids.split(',').map(s => s.trim()) : [];
+    const result = await runPreflight(caseIds, options.json);
+    if (options.json) {
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    } else {
+      const icon = result.ready ? chalk.green('READY') : chalk.red('NOT READY');
+      console.log(`\n  ${icon}\n`);
+      for (const check of result.checks) {
+        const s = check.status === 'ok' ? chalk.green('OK') : check.status === 'warn' ? chalk.yellow('WARN') : chalk.red('BLOCK');
+        console.log(`  ${s}  ${check.name}${check.message ? ` — ${check.message}` : ''}`);
+      }
+      if (result.skippedCases.length > 0) {
+        console.log(chalk.yellow(`\n  Skipped cases: ${result.skippedCases.join(', ')}`));
+      }
+      console.log('');
+    }
+    process.exitCode = result.ready ? 0 : 1;
+  });
+
 // ─── status command ──────────────────────────────────────────────────────────
 
 program
   .command('status')
-  .description('Show current task board status')
+  .description('Show current execution status or task board status')
   .option('--verbose', 'Show full task details', false)
-  .action((options: { verbose: boolean }) => {
+  .option('--json', 'Output JSON to stdout', false)
+  .action(async (options: { verbose: boolean; json: boolean }) => {
+    if (options.json) {
+      // Return executor state as JSON
+      const { getState } = await import('../dashboard/test-executor.ts');
+      const state = getState();
+      process.stdout.write(JSON.stringify(state, null, 2) + '\n');
+      return;
+    }
+
+    // Original human-readable task board output
     const board = new TaskBoard();
     const tasks = board.getAllTasks();
 
@@ -244,6 +347,58 @@ program
 
     console.log('');
   });
+
+// ─── result command ──────────────────────────────────────────────────────────
+
+program
+  .command('result')
+  .description('Query test results from shared/results/')
+  .option('--id <id>', 'Filter results by ID substring')
+  .option('--last <n>', 'Show only last N results', parseInt)
+  .option('--json', 'Output JSON to stdout (default: true)', true)
+  .action(async (options: { id?: string; last?: number; json: boolean }) => {
+    const { queryResults } = await import('./result-handler.ts');
+    const result = queryResults({ id: options.id, last: options.last });
+    if (options.json) {
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    } else {
+      console.log(`\n  ${result.count} result(s) found\n`);
+      for (const r of result.results) {
+        const status = (r.data as any)?.status;
+        const icon = status === 'passed' ? chalk.green('PASS') : status === 'failed' ? chalk.red('FAIL') : chalk.gray('????');
+        console.log(`  ${icon}  ${r.file}`);
+      }
+      console.log('');
+    }
+  });
+
+// ─── report command ──────────────────────────────────────────────────────────
+
+program
+  .command('report')
+  .description('Generate aggregated test report')
+  .option('--last <n>', 'Show only last N reports', parseInt)
+  .option('--json', 'Output JSON to stdout (default: true)', true)
+  .action(async (options: { last?: number; json: boolean }) => {
+    const { queryReports } = await import('./report-handler.ts');
+    const result = queryReports(options.last);
+    if (options.json) {
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    } else {
+      console.log(`\n  ${result.reports.length} report(s)\n`);
+      for (const r of result.reports) {
+        console.log(chalk.bold(`  ${r.filename}`));
+        console.log(chalk.gray(`  ${r.content.substring(0, 120)}...`));
+        console.log('');
+      }
+      if (result.latestSummary) {
+        const s = result.latestSummary;
+        console.log(`  Summary: ${chalk.green(s.passed + ' passed')}, ${chalk.red(s.failed + ' failed')}, ${chalk.gray(s.skipped + ' skipped')} / ${s.total} total\n`);
+      }
+    }
+  });
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
 function statusColor(status: string): typeof chalk.white {
   switch (status) {

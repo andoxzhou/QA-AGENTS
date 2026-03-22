@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OneKey QA-AGENTS — 一图看懂自动化测试系统</title>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: #f0f2f8;
+  color: #2d3748;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ===== Utility ===== */
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 80px 0; }
+.section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12px;
+  color: #1a202c;
+}
+.section-subtitle {
+  text-align: center;
+  color: #718096;
+  font-size: 1.1rem;
+  margin-bottom: 48px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ===== Glassmorphism Card ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+.glass-strong {
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== Tooltip (术语解释) ===== */
+.term {
+  border-bottom: 1.5px dashed #a0aec0;
+  cursor: help;
+  position: relative;
+  display: inline-block;
+}
+.term .tip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2d3748;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  width: max-content;
+  max-width: 280px;
+  z-index: 100;
+  pointer-events: none;
+  transition: opacity 0.2s, visibility 0.2s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+}
+.term .tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #2d3748;
+}
+.term:hover .tip { visibility: visible; opacity: 1; }
+
+/* ===== Nav ===== */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(255,255,255,0.72);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 0 24px;
+}
+nav .nav-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+}
+nav .logo { font-weight: 700; font-size: 1.1rem; color: #1a202c; }
+nav .logo-accent { color: #667eea; }
+nav .nav-links { display: flex; gap: 24px; list-style: none; }
+nav .nav-links a {
+  text-decoration: none; color: #4a5568; font-size: 0.9rem; font-weight: 500;
+  transition: color 0.2s;
+}
+nav .nav-links a:hover { color: #667eea; }
+
+/* ===== Hero ===== */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 56px;
+  background: linear-gradient(160deg, #e8ecf8 0%, #f0f2f8 40%, #eef4f0 100%);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(102,126,234,0.12) 0%, transparent 70%);
+  top: -100px; right: -100px;
+  border-radius: 50%;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(72,187,120,0.1) 0%, transparent 70%);
+  bottom: -50px; left: -50px;
+  border-radius: 50%;
+}
+.hero-content { position: relative; z-index: 1; }
+.hero h1 {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero .tagline {
+  font-size: 1.35rem;
+  color: #4a5568;
+  margin-bottom: 36px;
+  max-width: 560px;
+  margin-left: auto; margin-right: auto;
+}
+.hero .metaphor {
+  display: inline-block;
+  padding: 14px 28px;
+  background: rgba(255,255,255,0.7);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.8);
+  border-radius: 16px;
+  font-size: 1.05rem;
+  color: #2d3748;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+.scroll-hint {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: bounce 2s infinite;
+  color: #a0aec0;
+  font-size: 1.5rem;
+  z-index: 2;
+}
+@keyframes bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(8px); }
+}
+
+/* ===== Architecture (Three Layers) ===== */
+.arch-section {
+  background: linear-gradient(180deg, #f0f2f8 0%, #e8ecf8 100%);
+}
+.arch-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  perspective: 800px;
+}
+.arch-layer {
+  width: 100%;
+  max-width: 780px;
+  padding: 28px 32px;
+  cursor: pointer;
+  transition: transform 0.4s, box-shadow 0.4s;
+  position: relative;
+  z-index: 1;
+}
+.arch-layer-decision {
+  z-index: 3;
+  background: rgba(102, 126, 234, 0.13);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(102, 126, 234, 0.25);
+  border-radius: 20px 20px 8px 8px;
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.12);
+}
+.arch-layer-intelligence {
+  z-index: 2;
+  margin-top: -8px;
+  background: rgba(159, 122, 234, 0.11);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(159, 122, 234, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(159, 122, 234, 0.1);
+}
+.arch-layer-execution {
+  z-index: 1;
+  margin-top: -8px;
+  background: rgba(72, 187, 120, 0.11);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(72, 187, 120, 0.4);
+  border-radius: 8px 8px 20px 20px;
+  box-shadow: 0 12px 40px rgba(72, 187, 120, 0.1);
+}
+.arch-layer:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.1);
+}
+.arch-layer-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.arch-layer-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+.arch-layer-decision .arch-layer-icon { background: rgba(102,126,234,0.2); }
+.arch-layer-intelligence .arch-layer-icon { background: rgba(159,122,234,0.2); }
+.arch-layer-execution .arch-layer-icon { background: rgba(72,187,120,0.2); }
+.arch-layer-title { font-size: 1.25rem; font-weight: 700; }
+.arch-layer-brief { font-size: 0.95rem; color: #718096; margin-left: 58px; }
+.arch-layer-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.5s ease, padding 0.3s;
+  margin-left: 58px;
+}
+.arch-layer.open .arch-layer-detail {
+  max-height: 600px;
+  padding-top: 16px;
+}
+.arch-role {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.arch-role:last-child { border-bottom: none; }
+.arch-role-avatar {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.6);
+}
+.arch-role-avatar-blue { background: rgba(102,126,234,0.15); }
+.arch-role-avatar-purple { background: rgba(159,122,234,0.12); }
+.arch-role-avatar-green { background: rgba(72,187,120,0.12); }
+.arch-role-name { font-weight: 600; font-size: 0.95rem; }
+.arch-role-desc { font-size: 0.88rem; color: #718096; margin-top: 2px; }
+.arch-expand-hint {
+  text-align: center;
+  font-size: 0.82rem;
+  color: #a0aec0;
+  margin-top: 4px;
+}
+.arch-layer.open .arch-expand-hint { display: none; }
+
+/* ===== Arrow between layers ===== */
+.arch-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  color: #a0aec0;
+  font-size: 1.2rem;
+  z-index: 4;
+  position: relative;
+}
+
+/* ===== Workflow ===== */
+.workflow-section {
+  background: linear-gradient(180deg, #e8ecf8 0%, #f0f2f8 100%);
+}
+.workflow-steps {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 0;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.workflow-step {
+  text-align: center;
+  padding: 32px 20px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.65);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.8);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.04);
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s, transform 0.6s;
+}
+.workflow-step.visible { opacity: 1; transform: translateY(0); }
+.workflow-step:nth-child(3).visible { transition-delay: 0.15s; }
+.workflow-step:nth-child(5).visible { transition-delay: 0.3s; }
+.workflow-step-num {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; font-weight: 700;
+  margin: 0 auto 16px;
+  color: #fff;
+}
+.workflow-step:nth-child(1) .workflow-step-num { background: linear-gradient(135deg, #667eea, #764ba2); }
+.workflow-step:nth-child(3) .workflow-step-num { background: linear-gradient(135deg, #764ba2, #9f7aea); }
+.workflow-step:nth-child(5) .workflow-step-num { background: linear-gradient(135deg, #48bb78, #38a169); }
+.workflow-step h3 { font-size: 1.2rem; margin-bottom: 10px; }
+.workflow-step p { font-size: 0.92rem; color: #718096; line-height: 1.6; }
+.workflow-step-metaphor {
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+.workflow-step-metaphor-blue { color: #667eea; }
+.workflow-step-metaphor-purple { color: #9f7aea; }
+.workflow-step-metaphor-green { color: #48bb78; }
+.workflow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  color: #cbd5e0;
+  padding-top: 60px;
+}
+
+/* ===== Tech Stack ===== */
+.tech-section {
+  background: #f0f2f8;
+}
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.tech-card {
+  padding: 28px 24px;
+  text-align: center;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.tech-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.08);
+}
+.tech-icon {
+  width: 56px; height: 56px;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem;
+  margin: 0 auto 14px;
+}
+.tech-icon-blue { background: rgba(102,126,234,0.12); }
+.tech-icon-green { background: rgba(72,187,120,0.12); }
+.tech-icon-orange { background: rgba(237,137,54,0.12); }
+.tech-icon-purple { background: rgba(159,122,234,0.12); }
+.tech-icon-teal { background: rgba(56,178,172,0.12); }
+.tech-icon-red { background: rgba(237,100,100,0.12); }
+.tech-card h4 { font-size: 1.05rem; margin-bottom: 8px; font-weight: 600; }
+.tech-card .tech-plain { font-size: 0.88rem; color: #718096; line-height: 1.6; }
+.tech-card .tech-formal { font-size: 0.8rem; color: #a0aec0; margin-top: 8px; font-style: italic; }
+
+/* ===== Chat (Service Communication) ===== */
+.chat-section {
+  background: linear-gradient(180deg, #f0f2f8 0%, #e8ecf8 100%);
+}
+.chat-container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.5);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.7);
+}
+.chat-scenario-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.chat-scenario-tab {
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: rgba(255,255,255,0.6);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  color: #4a5568;
+}
+.chat-scenario-tab.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: transparent;
+}
+.chat-scenario-tab:hover:not(.active) {
+  border-color: #667eea;
+  color: #667eea;
+}
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 320px;
+}
+.chat-msg {
+  display: flex;
+  gap: 10px;
+  max-width: 85%;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.4s, transform 0.4s;
+}
+.chat-msg.show { opacity: 1; transform: translateY(0); }
+.chat-msg.right { flex-direction: row-reverse; margin-left: auto; }
+.chat-avatar {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.chat-bubble {
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  position: relative;
+}
+.chat-msg:not(.right) .chat-bubble {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-top-left-radius: 4px;
+}
+.chat-msg.right .chat-bubble {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+.chat-sender {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #a0aec0;
+}
+.chat-msg.right .chat-sender { color: rgba(255,255,255,0.7); text-align: right; }
+.chat-replay-btn {
+  display: block;
+  margin: 20px auto 0;
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: 1.5px solid #667eea;
+  background: transparent;
+  color: #667eea;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.chat-replay-btn:hover {
+  background: #667eea;
+  color: #fff;
+}
+
+/* ===== Platforms ===== */
+.platform-section {
+  background: linear-gradient(180deg, #e8ecf8 0%, #f0f2f8 100%);
+}
+.platform-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.platform-card {
+  padding: 32px 24px;
+  text-align: center;
+  transition: transform 0.3s;
+}
+.platform-card:hover { transform: translateY(-4px); }
+.platform-icon {
+  width: 64px; height: 64px;
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+  margin: 0 auto 16px;
+}
+.platform-icon-blue { background: rgba(102,126,234,0.12); }
+.platform-icon-green { background: rgba(72,187,120,0.12); }
+.platform-icon-orange { background: rgba(237,137,54,0.12); }
+.platform-card h4 { font-size: 1.1rem; margin-bottom: 8px; }
+.platform-card p { font-size: 0.88rem; color: #718096; margin-bottom: 12px; }
+.platform-sub { font-size: 0.8rem; color: #a0aec0; margin-top: 8px; }
+.platform-port {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 8px;
+  background: rgba(102,126,234,0.1);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #667eea;
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+
+/* ===== Connection Summary ===== */
+.conn-summary-wrap {
+  text-align: center;
+  margin-top: 48px;
+}
+.conn-summary {
+  display: inline-block;
+  padding: 24px 40px;
+  font-size: 0.92rem;
+  color: #4a5568;
+}
+.conn-playwright { color: #667eea; font-weight: 600; }
+.conn-cdp { color: #9f7aea; font-weight: 600; }
+.conn-app { color: #48bb78; font-weight: 600; }
+
+/* ===== Memory Pipeline ===== */
+.memory-section {
+  background: #f0f2f8;
+}
+.memory-pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.memory-stage {
+  flex: 1;
+  padding: 28px 20px;
+  text-align: center;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.6);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.7);
+  position: relative;
+}
+.memory-stage-icon {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  margin: 0 auto 14px;
+}
+.memory-stage:nth-child(1) .memory-stage-icon { background: rgba(237,100,100,0.15); }
+.memory-stage:nth-child(3) .memory-stage-icon { background: rgba(237,181,52,0.15); }
+.memory-stage:nth-child(5) .memory-stage-icon { background: rgba(72,187,120,0.15); }
+.memory-stage h4 { font-size: 1.05rem; margin-bottom: 8px; }
+.memory-stage p { font-size: 0.85rem; color: #718096; line-height: 1.5; }
+.memory-arrow {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; color: #cbd5e0; padding: 0 8px;
+}
+.memory-example {
+  margin-top: 32px;
+  max-width: 700px;
+  margin-left: auto; margin-right: auto;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.7);
+}
+.memory-example h4 { font-size: 0.95rem; margin-bottom: 12px; color: #4a5568; }
+.memory-example-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.mem-tag {
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.mem-tag.raw { background: rgba(237,100,100,0.12); color: #c53030; }
+.mem-tag.scene { background: rgba(237,181,52,0.12); color: #b7791f; }
+.mem-tag.recall { background: rgba(72,187,120,0.12); color: #276749; }
+.mem-flow-arrow { color: #cbd5e0; font-size: 1.1rem; }
+.memory-example-note {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+/* ===== Shared State Table ===== */
+.shared-state-section { background: #f0f2f8; }
+.state-table-wrap {
+  max-width: 800px;
+  margin: 0 auto;
+  overflow-x: auto;
+  padding: 24px;
+  border-radius: 20px;
+}
+.state-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9rem;
+}
+.state-table thead th {
+  padding: 14px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 2px solid #e2e8f0;
+  background: rgba(255,255,255,0.4);
+}
+.state-table thead th:first-child { border-radius: 12px 0 0 0; }
+.state-table thead th:last-child { border-radius: 0 12px 0 0; }
+.state-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf2f7;
+}
+.state-table tbody tr:hover { background: rgba(102,126,234,0.04); }
+.state-filename {
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  color: #667eea;
+}
+.state-table .writer-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.writer-designer { background: rgba(102,126,234,0.12); color: #667eea; }
+.writer-builder { background: rgba(159,122,234,0.12); color: #9f7aea; }
+.writer-manager { background: rgba(237,137,54,0.12); color: #dd6b20; }
+.writer-runner { background: rgba(72,187,120,0.12); color: #38a169; }
+.writer-reporter { background: rgba(56,178,172,0.12); color: #319795; }
+
+/* ===== File Structure ===== */
+.files-section {
+  background: linear-gradient(180deg, #f0f2f8 0%, #e8ecf8 100%);
+}
+.file-tree {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 32px;
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  font-size: 0.88rem;
+}
+.file-tree ul { list-style: none; padding-left: 20px; }
+.file-tree > ul { padding-left: 0; }
+.file-tree li { padding: 4px 0; position: relative; }
+.file-tree li::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 0;
+  height: 100%;
+  border-left: 1.5px solid #e2e8f0;
+}
+.file-tree li:last-child::before { height: 14px; }
+.file-tree li::after {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 14px;
+  width: 10px;
+  border-bottom: 1.5px solid #e2e8f0;
+}
+.file-tree > ul > li::before, .file-tree > ul > li::after { display: none; }
+.file-icon { margin-right: 8px; }
+.file-name { font-weight: 600; color: #2d3748; }
+.file-desc { color: #a0aec0; font-weight: 400; font-family: -apple-system, sans-serif; margin-left: 8px; font-size: 0.82rem; }
+.file-dir { cursor: pointer; -webkit-user-select: none; user-select: none; }
+.file-dir > .file-name { color: #667eea; }
+.file-dir > ul { overflow: hidden; max-height: 0; transition: max-height 0.4s ease; }
+.file-dir.open > ul { max-height: 1000px; }
+.file-dir > .toggle-icon { transition: transform 0.3s; display: inline-block; margin-right: 4px; }
+.file-dir.open > .toggle-icon { transform: rotate(90deg); }
+
+/* ===== Footer ===== */
+footer {
+  text-align: center;
+  padding: 40px 24px;
+  color: #a0aec0;
+  font-size: 0.85rem;
+  background: #e8ecf8;
+}
+footer .footer-sub { margin-top: 8px; }
+footer a { color: #667eea; text-decoration: none; }
+
+/* ===== Commands Table ===== */
+.commands-section { background: linear-gradient(180deg, #e8ecf8 0%, #f0f2f8 100%); }
+.cmd-wrap {
+  padding: 24px;
+  border-radius: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.cmd-category { margin-bottom: 32px; }
+.cmd-category:last-child { margin-bottom: 0; }
+.cmd-category-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+.cmd-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9rem;
+}
+.cmd-table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 2px solid #e2e8f0;
+  background: rgba(255,255,255,0.4);
+}
+.cmd-table th:first-child,
+.cmd-table td:first-child { width: 40%; }
+.cmd-table th:last-child,
+.cmd-table td:last-child { width: 60%; }
+.cmd-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #edf2f7;
+}
+.cmd-table tbody tr:hover { background: rgba(102,126,234,0.04); }
+.cmd-input {
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  font-size: 0.85rem;
+  color: #667eea;
+  background: rgba(102,126,234,0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.cmd-effect { color: #718096; }
+
+/* ===== Setup Section ===== */
+.setup-section { background: #f0f2f8; }
+.setup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.setup-card {
+  padding: 28px 24px;
+}
+.setup-card h4 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #2d3748;
+}
+.setup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #edf2f7;
+  font-size: 0.9rem;
+}
+.setup-item:last-child { border-bottom: none; }
+.setup-item-name { font-weight: 500; color: #2d3748; }
+.setup-item-value { color: #718096; font-size: 0.85rem; }
+.setup-port {
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  font-size: 0.82rem;
+  color: #667eea;
+  background: rgba(102,126,234,0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.setup-env {
+  margin-top: 24px;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 24px;
+}
+.setup-env h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.env-var {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #edf2f7;
+}
+.env-var:last-child { border-bottom: none; }
+.env-var-key {
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  color: #667eea;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+.env-var-desc { color: #718096; }
+
+
+/* ===== FAQ ===== */
+.faq-section { background: #f0f2f8; }
+.faq-list {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.faq-item {
+  margin-bottom: 12px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.faq-question {
+  width: 100%;
+  text-align: left;
+  padding: 18px 24px;
+  border: none;
+  background: rgba(255,255,255,0.6);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2d3748;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 16px;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.faq-question:hover { background: rgba(255,255,255,0.8); }
+.faq-toggle {
+  transition: transform 0.3s;
+  font-size: 0.9rem;
+  color: #a0aec0;
+}
+.faq-item.open .faq-toggle { transform: rotate(180deg); }
+.faq-item.open .faq-question {
+  border-radius: 16px 16px 0 0;
+}
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+  background: rgba(255,255,255,0.4);
+  border-radius: 0 0 16px 16px;
+}
+.faq-answer-inner {
+  padding: 16px 24px 20px;
+  font-size: 0.9rem;
+  color: #4a5568;
+  line-height: 1.7;
+}
+.faq-item.open .faq-answer { max-height: 400px; }
+.faq-code {
+  display: block;
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: rgba(45,55,72,0.06);
+  border-radius: 8px;
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  font-size: 0.82rem;
+  color: #2d3748;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 2.2rem; }
+  .workflow-steps { grid-template-columns: 1fr; gap: 16px; }
+  .workflow-arrow { transform: rotate(90deg); padding: 0; }
+  .platform-cards { grid-template-columns: 1fr; }
+  .memory-pipeline { flex-direction: column; }
+  .memory-arrow { transform: rotate(90deg); padding: 8px 0; }
+  .tech-grid { grid-template-columns: 1fr; }
+  nav .nav-links { display: none; }
+  .setup-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== Fade-in animation ===== */
+.fade-in {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Navigation ===== -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo">OneKey <span class="logo-accent">QA-AGENTS</span></div>
+    <ul class="nav-links">
+      <li><a href="#architecture">架构</a></li>
+      <li><a href="#workflow">流程</a></li>
+      <li><a href="#tech">技术栈</a></li>
+      <li><a href="#chat">通信</a></li>
+      <li><a href="#platforms">平台</a></li>
+      <li><a href="#memory">记忆</a></li>
+      <li><a href="#files">文件</a></li>
+      <li><a href="#commands">指令</a></li>
+      <li><a href="#setup">环境</a></li>
+<li><a href="#faq">FAQ</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ===== Hero ===== -->
+<section class="hero">
+  <div class="hero-content">
+    <h1>QA-AGENTS</h1>
+    <p class="tagline">多 Agent 协作的自动化测试系统<br>覆盖 Desktop、Web、Extension 三个平台<br>下面带你看看它是怎么运转的</p>
+    <div class="metaphor">
+      🎬 想象一下：你操作一遍 App，AI 就自动帮你写好测试剧本，以后每次更新都替你演一遍，确保没出岔子。
+    </div>
+  </div>
+  <div class="scroll-hint">↓</div>
+</section>
+
+<!-- ===== Architecture ===== -->
+<section id="architecture" class="section arch-section">
+  <div class="container">
+    <h2 class="section-title fade-in">三层架构：像一个测试团队</h2>
+    <p class="section-subtitle fade-in">就像一家公司有老板、技术骨干和一线员工一样，QA-AGENTS 也分成三层，各司其职。点击每一层看看里面都有谁。</p>
+
+    <div class="arch-stack fade-in">
+      <!-- Decision Layer -->
+      <div class="arch-layer arch-layer-decision" onclick="toggleLayer(this)">
+        <div class="arch-layer-header">
+          <div class="arch-layer-icon">👔</div>
+          <div class="arch-layer-title">决策层 — "老板"</div>
+        </div>
+        <div class="arch-layer-brief">负责拍板：该做什么、先做哪个、出了问题怎么办。</div>
+        <div class="arch-layer-detail">
+          <div class="arch-role">
+            <div class="arch-role-avatar arch-role-avatar-blue">🎬</div>
+            <div>
+              <div class="arch-role-name">QA 总导演 (Director)</div>
+              <div class="arch-role-desc">整个测试流程的总调度。它决定先跑哪些测试、检查前置条件够不够、测试失败了要不要重试。就像电影导演喊"Action!"的那个人。</div>
+            </div>
+          </div>
+        </div>
+        <div class="arch-expand-hint">👆 点击展开</div>
+      </div>
+
+      <div class="arch-arrow">↕</div>
+
+      <!-- Intelligence Layer -->
+      <div class="arch-layer arch-layer-intelligence" onclick="toggleLayer(this)">
+        <div class="arch-layer-header">
+          <div class="arch-layer-icon">🧠</div>
+          <div class="arch-layer-title">智能层 — "技术骨干"</div>
+        </div>
+        <div class="arch-layer-brief">出主意、做诊断、维护团队的"记忆库"。</div>
+        <div class="arch-layer-detail">
+          <div class="arch-role">
+            <div class="arch-role-avatar arch-role-avatar-purple">📝</div>
+            <div>
+              <div class="arch-role-name">用例设计师 (Test Designer)</div>
+              <div class="arch-role-desc">把产品需求翻译成"要测什么"。比如产品经理说"用户能搜索代币"，它就写出"搜索 BTC 应该出现比特币"这样的测试场景。</div>
+            </div>
+          </div>
+          <div class="arch-role">
+            <div class="arch-role-avatar arch-role-avatar-purple">📚</div>
+            <div>
+              <div class="arch-role-name">知识管理员 (Knowledge Builder)</div>
+              <div class="arch-role-desc">维护整个团队的"笔记本"——哪个按钮在页面的什么位置、之前遇到过什么坑、怎么找到特定元素。它是唯一能修改知识库的角色。</div>
+            </div>
+          </div>
+          <div class="arch-role">
+            <div class="arch-role-avatar arch-role-avatar-purple">🔍</div>
+            <div>
+              <div class="arch-role-name">质检经理 (QA Manager)</div>
+              <div class="arch-role-desc">测试失败时的"医生"。它只负责诊断问题出在哪（是按钮找不到了？还是网络太慢？），但不动手修——修的活儿交给别人。</div>
+            </div>
+          </div>
+        </div>
+        <div class="arch-expand-hint">👆 点击展开</div>
+      </div>
+
+      <div class="arch-arrow">↕</div>
+
+      <!-- Execution Layer -->
+      <div class="arch-layer arch-layer-execution" onclick="toggleLayer(this)">
+        <div class="arch-layer-header">
+          <div class="arch-layer-icon">⚡</div>
+          <div class="arch-layer-title">执行层 — "一线员工"</div>
+        </div>
+        <div class="arch-layer-brief">真正动手干活的：录操作、跑测试、写报告。</div>
+        <div class="arch-layer-detail">
+          <div class="arch-role">
+            <div class="arch-role-avatar arch-role-avatar-green">🎥</div>
+            <div>
+              <div class="arch-role-name">录制员 (Recorder)</div>
+              <div class="arch-role-desc">像一台摄像机，你在 App 上点哪里、输入什么，它都记下来。录完之后会问你"我记对了吗？"，确认后才交给下一步。</div>
+            </div>
+          </div>
+          <div class="arch-role">
+            <div class="arch-role-avatar arch-role-avatar-green">🏃</div>
+            <div>
+              <div class="arch-role-name">执行员 (Runner)</div>
+              <div class="arch-role-desc">拿着写好的"测试剧本"在 App 上自动跑一遍。它按顺序点击、输入、检查结果，就像一个不知疲倦的测试工程师。</div>
+            </div>
+          </div>
+          <div class="arch-role">
+            <div class="arch-role-avatar arch-role-avatar-green">📊</div>
+            <div>
+              <div class="arch-role-name">报告员 (Reporter)</div>
+              <div class="arch-role-desc">把测试结果整理成一目了然的报告：多少通过、多少失败、失败率是涨了还是降了，帮团队快速了解质量状况。</div>
+            </div>
+          </div>
+        </div>
+        <div class="arch-expand-hint">👆 点击展开</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Workflow ===== -->
+<section id="workflow" class="section workflow-section">
+  <div class="container">
+    <h2 class="section-title fade-in">三步搞定自动化测试</h2>
+    <p class="section-subtitle fade-in">从"手动操作一遍"到"自动反复测试"，只需要三步。</p>
+
+    <div class="workflow-steps">
+      <div class="workflow-step fade-in">
+        <div class="workflow-step-num">1</div>
+        <h3>🎬 录制</h3>
+        <p>你在 OneKey App 上正常操作——点按钮、输文字、切页面。<strong>录制员</strong>在后台默默记下你的每一步。</p>
+        <p class="workflow-step-metaphor workflow-step-metaphor-blue">就像有人拿手机帮你录屏，但记录的不是画面，而是"你点了哪个按钮"。</p>
+      </div>
+
+      <div class="workflow-arrow fade-in">→</div>
+
+      <div class="workflow-step fade-in">
+        <div class="workflow-step-num">2</div>
+        <h3>⚙️ 生成</h3>
+        <p>AI 把你的操作翻译成<strong>测试脚本</strong>——一段能自动重复你刚才操作的代码。它还会验证脚本能跑通。</p>
+        <p class="workflow-step-metaphor workflow-step-metaphor-purple">你教了 AI 一遍，它就学会了，以后可以自己来。</p>
+      </div>
+
+      <div class="workflow-arrow fade-in">→</div>
+
+      <div class="workflow-step fade-in">
+        <div class="workflow-step-num">3</div>
+        <h3>🔄 回归</h3>
+        <p>每次 App 更新后，打开<strong>测试面板</strong>（Dashboard），勾选要测的用例，点一下"执行"，AI 就自动帮你跑一遍。</p>
+        <p class="workflow-step-metaphor workflow-step-metaphor-green">就像每次装修完房子，自动检查一遍水电是不是都正常。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Tech Stack ===== -->
+<section id="tech" class="section tech-section">
+  <div class="container">
+    <h2 class="section-title fade-in">技术工具箱</h2>
+    <p class="section-subtitle fade-in">这些是 QA-AGENTS 用到的核心技术。别被名字吓到，每一个都有大白话解释。</p>
+
+    <div class="tech-grid">
+      <div class="tech-card glass fade-in">
+        <div class="tech-icon tech-icon-blue">🔌</div>
+        <h4>CDP</h4>
+        <div class="tech-plain">
+          <strong>大白话：</strong>一根"遥控线"。把这根线插到 OneKey App 上，我们的测试工具就能远程控制它——帮你点按钮、输文字、读页面内容。
+        </div>
+        <div class="tech-formal">Chrome DevTools Protocol — Chrome/Electron 应用的远程调试协议</div>
+      </div>
+
+      <div class="tech-card glass fade-in">
+        <div class="tech-icon tech-icon-green">🎭</div>
+        <h4>Playwright</h4>
+        <div class="tech-plain">
+          <strong>大白话：</strong>一个"虚拟手指"。它能模拟人的操作——点击、滚动、打字，而且速度飞快、永不手抖。通过上面说的 CDP "遥控线"来操作 App。
+        </div>
+        <div class="tech-formal">Microsoft 开发的浏览器自动化库，支持多浏览器</div>
+      </div>
+
+      <div class="tech-card glass fade-in">
+        <div class="tech-icon tech-icon-orange">📦</div>
+        <h4>Electron</h4>
+        <div class="tech-plain">
+          <strong>大白话：</strong>OneKey 桌面版的"外壳"。它让网页技术做的界面可以像普通软件一样安装在电脑上运行。所以我们用网页测试工具就能测桌面 App。
+        </div>
+        <div class="tech-formal">用 Web 技术构建跨平台桌面应用的框架</div>
+      </div>
+
+      <div class="tech-card glass fade-in">
+        <div class="tech-icon tech-icon-purple">🤖</div>
+        <h4>Claude Code</h4>
+        <div class="tech-plain">
+          <strong>大白话：</strong>整个系统的"大脑"。它是一个 AI 助手，能理解你说的话、分析测试用例文档、生成测试代码，还能诊断失败原因。你对它说中文就行。
+        </div>
+        <div class="tech-formal">Anthropic 的 AI 编程助手，驱动多智能体协作</div>
+      </div>
+
+      <div class="tech-card glass fade-in">
+        <div class="tech-icon tech-icon-teal">🗂️</div>
+        <h4>Node.js</h4>
+        <div class="tech-plain">
+          <strong>大白话：</strong>运行测试脚本的"引擎"。就像汽车需要发动机来跑起来，测试脚本需要 Node.js 来执行。它还负责启动 Dashboard 面板。
+        </div>
+        <div class="tech-formal">基于 V8 的 JavaScript 运行时环境</div>
+      </div>
+
+      <div class="tech-card glass fade-in">
+        <div class="tech-icon tech-icon-red">📋</div>
+        <h4>JSON</h4>
+        <div class="tech-plain">
+          <strong>大白话：</strong>系统内部的"便签纸"格式。所有的配置、测试数据、知识库都用这种格式存储——它就像一种特别整齐的笔记格式，人能看懂，机器也能读。
+        </div>
+        <div class="tech-formal">JavaScript Object Notation — 轻量级数据交换格式</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Chat Communication ===== -->
+<section id="chat" class="section chat-section">
+  <div class="container">
+    <h2 class="section-title fade-in">它们是怎么"聊天"的？</h2>
+    <p class="section-subtitle fade-in">每个 Agent 之间的协作，就像同事在群里发消息一样。选择一个场景，看看它们是怎么配合的。</p>
+
+    <div class="chat-container glass-strong fade-in">
+      <div class="chat-scenario-tabs">
+        <button type="button" class="chat-scenario-tab active" data-scenario="record">录制新用例</button>
+        <button type="button" class="chat-scenario-tab" data-scenario="fail">测试失败了</button>
+        <button type="button" class="chat-scenario-tab" data-scenario="regression">日常回归</button>
+      </div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <button type="button" class="chat-replay-btn" id="chatReplay">🔄 重新播放</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Platforms ===== -->
+<section id="platforms" class="section platform-section">
+  <div class="container">
+    <h2 class="section-title fade-in">三个平台，一套测试</h2>
+    <p class="section-subtitle fade-in">OneKey 有 Desktop、Web 和 Extension 三种形态。QA-AGENTS 能分别连接它们，用类似的方式测试。</p>
+
+    <div class="platform-cards">
+      <div class="platform-card glass fade-in">
+        <div class="platform-icon platform-icon-blue">🖥️</div>
+        <h4>Desktop</h4>
+        <p>装在电脑上的 OneKey 应用。通过 <span class="term">Electron<span class="tip">一种让网页技术变成桌面软件的技术。你用的 VS Code、Discord 都是用它做的。</span></span> 技术开发，所以能用网页测试工具来测。</p>
+        <div class="platform-port">端口 9222</div>
+        <p class="platform-sub">录制监控：localhost:3210</p>
+      </div>
+
+      <div class="platform-card glass fade-in">
+        <div class="platform-icon platform-icon-green">🌐</div>
+        <h4>Web</h4>
+        <p>在浏览器里打开的 OneKey 网页版。直接用 Chrome 打开测试，会自动复制你的浏览器配置，这样登录状态什么的都在。</p>
+        <div class="platform-port">端口 9223</div>
+        <p class="platform-sub">录制监控：localhost:3211</p>
+      </div>
+
+      <div class="platform-card glass fade-in">
+        <div class="platform-icon platform-icon-orange">🧩</div>
+        <h4>Extension</h4>
+        <p>安装在 Chrome 浏览器里的 OneKey 扩展。测试时会复制完整的浏览器数据目录，保留扩展和设置，就像克隆了一个你的浏览器。</p>
+        <div class="platform-port">端口 9224</div>
+        <p class="platform-sub">录制监控：localhost:3212</p>
+      </div>
+    </div>
+
+    <!-- Connection diagram -->
+    <div class="conn-summary-wrap fade-in">
+      <div class="conn-summary glass">
+        <strong>连接方式一句话总结：</strong><br>
+        测试脚本 → <span class="conn-playwright">Playwright</span>（虚拟手指）→ <span class="conn-cdp">CDP</span>（遥控线）→ <span class="conn-app">App</span>（被测应用）
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Memory Pipeline ===== -->
+<section id="memory" class="section memory-section">
+  <div class="container">
+    <h2 class="section-title fade-in">学习系统：越测越聪明</h2>
+    <p class="section-subtitle fade-in">QA-AGENTS 有一套"记忆系统"，能从每次测试中学习，下次遇到类似问题时更快解决。</p>
+
+    <div class="memory-pipeline fade-in">
+      <div class="memory-stage glass">
+        <div class="memory-stage-icon">📝</div>
+        <h4>原始记忆</h4>
+        <p>每次测试的结果都会被记下来：用了哪个选择器、花了多长时间、成功还是失败。就像一个人的<strong>日记本</strong>，什么都记。</p>
+      </div>
+      <div class="memory-arrow">→</div>
+      <div class="memory-stage glass">
+        <div class="memory-stage-icon">🗂️</div>
+        <h4>归类整理</h4>
+        <p>把相似的记忆分组。比如"在桌面端经常找不到搜索按钮"会被归成一个<strong>场景</strong>。就像把散乱的笔记整理成一本<strong>错题集</strong>。</p>
+      </div>
+      <div class="memory-arrow">→</div>
+      <div class="memory-stage glass">
+        <div class="memory-stage-icon">💡</div>
+        <h4>智能回忆</h4>
+        <p>下次碰到类似问题时，系统会自动翻<strong>错题集</strong>，找出之前是怎么解决的。不用每次都从头分析，效率越来越高。</p>
+      </div>
+    </div>
+
+    <div class="memory-example glass fade-in">
+      <h4>举个例子 🌰</h4>
+      <div class="memory-example-flow">
+        <span class="mem-tag raw">搜索按钮找不到 ×3</span>
+        <span class="mem-flow-arrow">→</span>
+        <span class="mem-tag scene">归类：桌面端选择器失效</span>
+        <span class="mem-flow-arrow">→</span>
+        <span class="mem-tag recall">回忆：用 fallback 选择器解决</span>
+      </div>
+      <p class="memory-example-note">
+        系统发现同一个按钮连续 3 次找不到，自动归类为"选择器失效"，下次直接用备选方案，不再浪费时间重试。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Shared State (Data Flow) ===== -->
+<section class="section shared-state-section">
+  <div class="container">
+    <h2 class="section-title fade-in">数据流转：谁写谁读？</h2>
+    <p class="section-subtitle fade-in">每个 Agent 都有自己的"专属笔记本"，只有指定的 Agent 能往里写，其他人只能看。这样就不会互相打架了。</p>
+
+    <div class="state-table-wrap glass-strong fade-in">
+      <table class="state-table">
+        <thead>
+          <tr>
+            <th>数据文件</th>
+            <th>谁能写</th>
+            <th>用大白话说</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="state-filename">test_cases.json</span></td>
+            <td><span class="writer-badge writer-designer">用例设计师</span></td>
+            <td>所有要测的内容清单，类似"考试大纲"</td>
+          </tr>
+          <tr>
+            <td><span class="state-filename">ui-map.json</span></td>
+            <td><span class="writer-badge writer-builder">知识管理员</span></td>
+            <td>页面上每个按钮/输入框的"地址"，方便测试工具找到它们</td>
+          </tr>
+          <tr>
+            <td><span class="state-filename">knowledge.json</span></td>
+            <td><span class="writer-badge writer-builder">知识管理员</span></td>
+            <td>积累的经验和技巧，比如"这个弹窗要等 2 秒才出来"</td>
+          </tr>
+          <tr>
+            <td><span class="state-filename">diagnosis.json</span></td>
+            <td><span class="writer-badge writer-manager">质检经理</span></td>
+            <td>失败原因分析，类似"病历表"</td>
+          </tr>
+          <tr>
+            <td><span class="state-filename">results/*.json</span></td>
+            <td><span class="writer-badge writer-runner">执行员</span></td>
+            <td>每次测试跑完的成绩单：通过/失败/跳过</td>
+          </tr>
+          <tr>
+            <td><span class="state-filename">reports/*.md</span></td>
+            <td><span class="writer-badge writer-reporter">报告员</span></td>
+            <td>整理好的质量报告，给人看的那种</td>
+          </tr>
+          <tr>
+            <td><span class="state-filename">mem_cells.json</span></td>
+            <td><span class="writer-badge writer-builder">知识管理员</span></td>
+            <td>原始记忆条目，测试过程的"流水账"</td>
+          </tr>
+          <tr>
+            <td><span class="state-filename">mem_scenes.json</span></td>
+            <td><span class="writer-badge writer-builder">知识管理员</span></td>
+            <td>归类后的"错题集"，相似问题归到一起</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===== File Structure ===== -->
+<section id="files" class="section files-section">
+  <div class="container">
+    <h2 class="section-title fade-in">项目文件一览</h2>
+    <p class="section-subtitle fade-in">点击文件夹可以展开/收起。每个文件旁边都标注了它的作用。</p>
+
+    <div class="file-tree glass-strong fade-in">
+      <ul>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/tests/</span>
+          <span class="file-desc">— 所有测试脚本</span>
+          <ul>
+            <li class="file-dir" onclick="toggleDir(event, this)">
+              <span class="toggle-icon">▶</span>
+              <span class="file-icon">📁</span>
+              <span class="file-name">desktop/</span>
+              <span class="file-desc">— 桌面端用例 (端口 9222)</span>
+              <ul>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">market/</span>
+                  <span class="file-desc">— 行情模块</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">search.test.mjs</span><span class="file-desc">— 搜索代币 (5个用例)</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">favorite.test.mjs</span><span class="file-desc">— 收藏功能 (6个用例)</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">chart.test.mjs</span><span class="file-desc">— K线图表</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">perps/</span>
+                  <span class="file-desc">— 合约交易</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">favorites.test.mjs</span><span class="file-desc">— 合约收藏</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">token-search.test.mjs</span><span class="file-desc">— 合约代币搜索</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">settings/</span>
+                  <span class="file-desc">— 系统设置</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">language-switch.test.mjs</span><span class="file-desc">— 切换语言</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">theme-switch.test.mjs</span><span class="file-desc">— 切换主题</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">wallet/</span>
+                  <span class="file-desc">— 钱包操作</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">create-mnemonic.test.mjs</span><span class="file-desc">— 创建助记词钱包</span></li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li class="file-dir" onclick="toggleDir(event, this)">
+              <span class="toggle-icon">▶</span>
+              <span class="file-icon">📁</span>
+              <span class="file-name">web/</span>
+              <span class="file-desc">— 网页端用例 (端口 9223)</span>
+              <ul>
+                <li><span class="file-icon">📄</span><span class="file-name">market/search.test.mjs</span><span class="file-desc">— WEB 搜索用例</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">market/chart.test.mjs</span><span class="file-desc">— WEB K线图表</span></li>
+              </ul>
+            </li>
+            <li class="file-dir" onclick="toggleDir(event, this)">
+              <span class="toggle-icon">▶</span>
+              <span class="file-icon">📁</span>
+              <span class="file-name">extension/</span>
+              <span class="file-desc">— 插件端用例 (端口 9224)</span>
+              <ul>
+                <li><span class="file-icon">📄</span><span class="file-name">market/search.test.mjs</span><span class="file-desc">— 插件搜索用例</span></li>
+              </ul>
+            </li>
+            <li class="file-dir" onclick="toggleDir(event, this)">
+              <span class="toggle-icon">▶</span>
+              <span class="file-icon">📁</span>
+              <span class="file-name">helpers/</span>
+              <span class="file-desc">— 共享工具函数</span>
+              <ul>
+                <li><span class="file-icon">📄</span><span class="file-name">index.mjs</span><span class="file-desc">— CDP 连接、截图、基础工具</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">market-search.mjs</span><span class="file-desc">— 搜索逻辑 (三端复用)</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">preconditions.mjs</span><span class="file-desc">— 前置条件检查</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">navigation.mjs</span><span class="file-desc">— 页面导航、关闭弹窗</span></li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/recorder/</span>
+          <span class="file-desc">— 操作录制器</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">listen.mjs</span><span class="file-desc">— 桌面端录制 (监控页 :3210)</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">listen-web.mjs</span><span class="file-desc">— 网页端录制 (监控页 :3211)</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">generate.mjs</span><span class="file-desc">— 录制 → 测试代码生成</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/dashboard/</span>
+          <span class="file-desc">— 测试执行面板</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">server.ts</span><span class="file-desc">— 面板服务 (端口 5050)</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">index.html</span><span class="file-desc">— 面板页面</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">test-registry.ts</span><span class="file-desc">— 自动发现用例文件</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">test-executor.ts</span><span class="file-desc">— 执行引擎</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/knowledge/</span>
+          <span class="file-desc">— 记忆与学习系统</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">memory-pipeline.mjs</span><span class="file-desc">— 三阶段记忆管线</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">shared/</span>
+          <span class="file-desc">— 共享数据文件 (Agent 间通信)</span>
+          <ul>
+            <li><span class="file-icon">📋</span><span class="file-name">test_cases.json</span><span class="file-desc">— 测试用例清单</span></li>
+            <li><span class="file-icon">📋</span><span class="file-name">ui-map.json</span><span class="file-desc">— 页面元素地址簿</span></li>
+            <li><span class="file-icon">📋</span><span class="file-name">knowledge.json</span><span class="file-desc">— 经验知识库</span></li>
+            <li><span class="file-icon">📋</span><span class="file-name">diagnosis.json</span><span class="file-desc">— 失败诊断表</span></li>
+            <li><span class="file-icon">📁</span><span class="file-name">results/</span><span class="file-desc">— 执行结果文件</span></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Commands Reference ===== -->
+<section id="commands" class="section commands-section">
+  <div class="container">
+    <h2 class="section-title fade-in">快捷指令速查</h2>
+    <p class="section-subtitle fade-in">在 Claude Code 对话框里直接输入这些话，AI 就知道你要干嘛。跟发微信一样简单。</p>
+
+    <div class="glass-strong cmd-wrap fade-in">
+      <div class="cmd-category">
+        <div class="cmd-category-title">录制相关</div>
+        <table class="cmd-table">
+          <thead><tr><th>你说</th><th>AI 做什么</th></tr></thead>
+          <tbody>
+            <tr><td><span class="cmd-input">@用例文件.md 开始录制</span></td><td class="cmd-effect">读取用例 → 启动录制器 → 引导你逐场景操作</td></tr>
+            <tr><td><span class="cmd-input">录完了</span></td><td class="cmd-effect">展示录制到的每一步，等你确认</td></tr>
+            <tr><td><span class="cmd-input">录制测试</span></td><td class="cmd-effect">完整流程：录制 → 确认 → 生成脚本 → 验证通过</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cmd-category">
+        <div class="cmd-category-title">执行相关</div>
+        <table class="cmd-table">
+          <thead><tr><th>你说</th><th>AI 做什么</th></tr></thead>
+          <tbody>
+            <tr><td><span class="cmd-input">qatest 开始执行</span></td><td class="cmd-effect">启动 App + Dashboard，打开执行面板</td></tr>
+            <tr><td><span class="cmd-input">跑测试</span></td><td class="cmd-effect">执行 → 汇总结果 → 失败自动诊断</td></tr>
+            <tr><td><span class="cmd-input">执行测试 MARKET-SEARCH-002</span></td><td class="cmd-effect">只跑指定的那一个用例</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cmd-category">
+        <div class="cmd-category-title">诊断和报告</div>
+        <table class="cmd-table">
+          <thead><tr><th>你说</th><th>AI 做什么</th></tr></thead>
+          <tbody>
+            <tr><td><span class="cmd-input">诊断失败</span></td><td class="cmd-effect">分析最近失败的用例，给出根因和修复建议</td></tr>
+            <tr><td><span class="cmd-input">为什么失败 MARKET-FAV-003</span></td><td class="cmd-effect">分析指定用例的失败原因</td></tr>
+            <tr><td><span class="cmd-input">更新选择器</span></td><td class="cmd-effect">修复失效的页面元素定位</td></tr>
+            <tr><td><span class="cmd-input">生成报告</span></td><td class="cmd-effect">生成测试质量报告</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cmd-category">
+        <div class="cmd-category-title">设计相关</div>
+        <table class="cmd-table">
+          <thead><tr><th>你说</th><th>AI 做什么</th></tr></thead>
+          <tbody>
+            <tr><td><span class="cmd-input">设计用例</span></td><td class="cmd-effect">从需求文档分析，设计测试场景</td></tr>
+            <tr><td><span class="cmd-input">写用例</span></td><td class="cmd-effect">同上</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Environment Setup ===== -->
+<section id="setup" class="section setup-section">
+  <div class="container">
+    <h2 class="section-title fade-in">环境准备</h2>
+    <p class="section-subtitle fade-in">开始之前需要准备这些东西。大部分都是"装好就不用管"的。</p>
+
+    <div class="setup-grid">
+      <div class="glass-strong setup-card fade-in">
+        <h4>需要安装的软件</h4>
+        <div class="setup-item">
+          <span class="setup-item-name">OneKey Desktop</span>
+          <span class="setup-item-value">桌面端测试用（自动启动）</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">Google Chrome</span>
+          <span class="setup-item-value">Web / 插件端测试用</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">Node.js 20+</span>
+          <span class="setup-item-value">运行脚本和面板</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">playwright-core</span>
+          <span class="setup-item-value">npm install 即可</span>
+        </div>
+      </div>
+
+      <div class="glass-strong setup-card fade-in">
+        <h4>端口分配</h4>
+        <div class="setup-item">
+          <span class="setup-item-name">桌面端 CDP</span>
+          <span class="setup-port">9222</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">Web 端 CDP</span>
+          <span class="setup-port">9223</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">插件端 CDP</span>
+          <span class="setup-port">9224</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">Dashboard 面板</span>
+          <span class="setup-port">5050</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">桌面端录制监控</span>
+          <span class="setup-port">3210</span>
+        </div>
+        <div class="setup-item">
+          <span class="setup-item-name">Web 端录制监控</span>
+          <span class="setup-port">3211</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-env glass-strong fade-in">
+      <h4>环境变量（可选，不设也能跑）</h4>
+      <div class="env-var">
+        <span class="env-var-key">CDP_URL</span>
+        <span class="env-var-desc">桌面端连接地址，默认 http://127.0.0.1:9222</span>
+      </div>
+      <div class="env-var">
+        <span class="env-var-key">WEB_CDP_URL</span>
+        <span class="env-var-desc">Web 端连接地址，默认 http://127.0.0.1:9223</span>
+      </div>
+      <div class="env-var">
+        <span class="env-var-key">EXT_CDP_URL</span>
+        <span class="env-var-desc">插件端连接地址，默认 http://127.0.0.1:9224</span>
+      </div>
+      <div class="env-var">
+        <span class="env-var-key">ONEKEY_EXT_ID</span>
+        <span class="env-var-desc">插件 ID（默认自动检测）</span>
+      </div>
+      <div class="env-var">
+        <span class="env-var-key">WALLET_PASSWORD</span>
+        <span class="env-var-desc">钱包解锁密码</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== FAQ ===== -->
+<section id="faq" class="section faq-section">
+  <div class="container">
+    <h2 class="section-title fade-in">常见问题</h2>
+    <p class="section-subtitle fade-in">遇到问题先看这里，大部分情况都能自己解决。</p>
+
+    <div class="faq-list fade-in">
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          录制时多录了几步，怎么删？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            录制完成后 AI 会列出所有步骤。监控页面（<strong>localhost:3210</strong>）上每一步旁边都有<strong>删除按钮</strong>，直接点掉多余的步骤就行。也可以直接告诉 AI "第 3 步多余了"或者"第 5 步应该是点另一个按钮"，AI 会帮你修正。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          录制的步骤不对或有遗漏？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            直接用<strong>口头描述</strong>告诉 AI 哪里不对。比如：
+            <br>&#8226; "第 2 步应该是长按，不是点击"
+            <br>&#8226; "漏了一步，在点搜索之前要先关掉弹窗"
+            <br>&#8226; "最后还需要验证一下搜索结果里有没有价格"
+            <br><br>AI 会根据你的描述补充或修改录制结果，不需要重新录一遍。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          一个用例要覆盖桌面、Web、插件三端怎么办？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            不用每端都从头录一遍。<strong>先录一个端</strong>（比如桌面端），确认脚本通过后，再告诉 AI "把这个用例覆盖到 Web 端和插件端"。AI 会自动复用核心逻辑，只适配各端不同的入口方式（比如桌面端点搜索框、Web 端点搜索图标、插件端先试输入框再 fallback 到图标）。大部分情况下只需要微调一两个地方。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          前置条件不固定怎么处理？（比如"默认推荐"的内容每次不一样）
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            这种情况需要<strong>告诉 AI 当前状态可能不同</strong>，让脚本先判断再操作。比如测试收藏功能：
+            <br><br>&#8226; 默认推荐卡片不一定有本地数据，可能已经被收藏了
+            <br>&#8226; 跟 AI 说："如果已收藏就先取消，再重新收藏来测试"
+            <br><br>AI 会在脚本里加一段<strong>状态判断逻辑</strong>：先检查当前是什么状态，根据实际情况选择不同的操作路径。这样同一个脚本在不同环境下都能跑通。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          CDP 连不上怎么办？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            先杀掉旧进程，再重新启动：
+            <code class="faq-code">pkill -f "OneKey" &amp;&amp; sleep 2
+/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey --remote-debugging-port=9222 &amp;</code>
+            Web / 插件端同理，杀掉 Chrome 后脚本会自动重启。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          录制器断开了？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            打开录制监控页面（<strong>localhost:3210</strong>），看 CDP 状态指示灯。断开时点 <strong>Reconnect</strong> 按钮一键重连。录制器不会超时退出，别担心。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          Dashboard 执行的还是旧代码？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            Node.js 会缓存模块，改了脚本后必须重启 Dashboard：
+            <code class="faq-code">pkill -f "tsx src/dashboard" &amp;&amp; npx tsx src/dashboard/server.ts</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          插件加载失败？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            清理旧的临时数据目录，重新运行时会自动复制：
+            <code class="faq-code">rm -rf /tmp/chrome-ext-cdp-profile</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          App 更新后一堆用例突然失败了？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            大概率是 UI 改版导致页面元素的定位（选择器）批量失效。不用一个个重录，直接告诉 AI <strong>"更新选择器"</strong>，知识管理员会自动扫描并修复失效的定位。修完后重跑一遍就行。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          测试跑到一半被意外弹窗挡住了？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            App 有时会弹出升级提示、公告通知等意外弹窗，挡住正常操作导致测试卡住或失败。跟 AI 说 <strong>"脚本前面加一步自动关弹窗"</strong>，它会在测试开始前自动检测并关闭这些弹窗。系统里已经有现成的 <strong>dismissOverlays</strong> 工具函数来做这件事。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          网络慢导致测试超时失败？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            这不是代码 bug，是环境问题。可以告诉 AI <strong>"这个步骤网络比较慢，多等一会儿"</strong>，AI 会增加轮询重试次数或调整等待时间。默认是重试 10 次、每次间隔 500ms，如果经常超时可以让 AI 调高。
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button type="button" class="faq-question" onclick="toggleFaq(this.parentElement)">
+          哪些场景不适合自动化？
+          <span class="faq-toggle">▼</span>
+        </button>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">
+            三类操作目前没法自动化，AI 会提前告诉你：
+            <br>&#8226; <strong>DApp 网页内的操作</strong>（比如点 Connect Wallet 按钮）— CDP 无法访问内置浏览器的 webview
+            <br>&#8226; <strong>需要硬件钱包的操作</strong> — 需要物理按键确认
+            <br>&#8226; <strong>短信 / 邮件验证</strong> — 涉及外部系统
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Footer ===== -->
+<footer>
+  <p>OneKey QA-AGENTS — 让测试变得聪明又轻松</p>
+  <p class="footer-sub">基于 <a href="#">Claude Code</a> + Playwright + CDP 构建的多智能体自动化测试系统</p>
+</footer>
+
+<!-- ===== JavaScript ===== -->
+<script>
+// ===== Architecture Layer Toggle =====
+function toggleLayer(el) {
+  el.classList.toggle('open');
+}
+
+// ===== File Tree Toggle =====
+function toggleDir(e, el) {
+  e.stopPropagation();
+  el.classList.toggle('open');
+}
+
+// ===== FAQ Toggle =====
+function toggleFaq(el) {
+  el.classList.toggle('open');
+}
+
+// ===== Scroll Fade-in =====
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+document.querySelectorAll('.workflow-step').forEach(function(el) { observer.observe(el); });
+
+// ===== Chat Scenarios =====
+var scenarios = {
+  record: [
+    { sender: '你 (QA)', avatar: '👤', avatarClass: 'chat-avatar-user', msg: '@market-search.md 开始录制，录制桌面端', right: true },
+    { sender: 'QA 导演', avatar: '🎬', avatarClass: 'chat-avatar-director', msg: '收到！我先帮你启动 OneKey App 和录制器...好了，CDP 连接正常，录制器已就绪。\n\n这个用例需要录 3 个场景，先从"英文搜索"开始吧。请在 App 上点击搜索框，输入 BTC。' },
+    { sender: '录制员', avatar: '🎥', avatarClass: 'chat-avatar-recorder', msg: '我在监控了！你在 App 上操作，我会实时记录每一步。\n📡 监控页面：localhost:3210' },
+    { sender: '你 (QA)', avatar: '👤', avatarClass: 'chat-avatar-user', msg: '好了，录完了', right: true },
+    { sender: '录制员', avatar: '🎥', avatarClass: 'chat-avatar-recorder', msg: '录制步骤确认：\n1️⃣ 点击顶部搜索框\n2️⃣ 输入 "BTC"\n3️⃣ 等待搜索结果\n4️⃣ 点击第一条结果\n\n请确认步骤顺序和完整性？' },
+    { sender: '你 (QA)', avatar: '👤', avatarClass: 'chat-avatar-user', msg: '对的，确认', right: true },
+    { sender: '用例设计师', avatar: '📝', avatarClass: 'chat-avatar-designer', msg: '太好了！我来生成测试脚本 MARKET-SEARCH-001...\n✅ 脚本生成完毕\n✅ 运行验证通过\n✅ 已注册到 Dashboard' }
+  ],
+  fail: [
+    { sender: 'QA 导演', avatar: '🎬', avatarClass: 'chat-avatar-director', msg: '回归测试跑完了。8 个通过，1 个失败：MARKET-SEARCH-003（中文搜索）。让我叫质检经理来看看。' },
+    { sender: '质检经理', avatar: '🔍', avatarClass: 'chat-avatar-manager', msg: '我来诊断...\n\n🔎 检查截图和日志\n🔎 分析失败位置\n\n诊断结果：选择器失效 (selector_stale)\n原因：搜索框的 data-testid 从 "search-input" 变成了 "market-search-input"\n置信度：92%' },
+    { sender: 'QA 导演', avatar: '🎬', avatarClass: 'chat-avatar-director', msg: '知识管理员，麻烦更新一下选择器。' },
+    { sender: '知识管理员', avatar: '📚', avatarClass: 'chat-avatar-builder', msg: '收到！\n✏️ 更新 ui-map.json：search-input → market-search-input\n📝 记录到记忆库：此按钮的 testid 变更历史\n✅ 已更新' },
+    { sender: 'QA 导演', avatar: '🎬', avatarClass: 'chat-avatar-director', msg: '重跑 MARKET-SEARCH-003...\n✅ 通过！修好了。' }
+  ],
+  regression: [
+    { sender: '你 (QA)', avatar: '👤', avatarClass: 'chat-avatar-user', msg: 'qatest 开始执行', right: true },
+    { sender: 'QA 导演', avatar: '🎬', avatarClass: 'chat-avatar-director', msg: '好的，我来准备环境...\n✅ OneKey CDP 连接正常\n✅ Dashboard 已启动\n\n请打开 http://localhost:5050 勾选要执行的用例。' },
+    { sender: '你 (QA)', avatar: '👤', avatarClass: 'chat-avatar-user', msg: '我勾了 Market 搜索和收藏的全部用例，点了执行', right: true },
+    { sender: '执行员', avatar: '🏃', avatarClass: 'chat-avatar-runner', msg: '开跑！\n▶ MARKET-SEARCH-001 英文搜索... ✅\n▶ MARKET-SEARCH-002 大小写... ✅\n▶ MARKET-SEARCH-003 中文搜索... ✅\n▶ MARKET-FAV-001 添加收藏... ✅\n▶ MARKET-FAV-002 取消收藏... ✅\n\n全部 5/5 通过！' },
+    { sender: '报告员', avatar: '📊', avatarClass: 'chat-avatar-reporter', msg: '测试报告已生成 ✨\n\n通过率：100% (5/5)\n总耗时：42 秒\n比上次快了 3 秒\n\n详情已保存到 shared/reports/' }
+  ]
+};
+
+var currentScenario = 'record';
+var chatTimers = [];
+
+function playChat(scenarioKey) {
+  currentScenario = scenarioKey;
+  var msgs = scenarios[scenarioKey];
+  var container = document.getElementById('chatMessages');
+  container.innerHTML = '';
+
+  // Update tabs
+  document.querySelectorAll('.chat-scenario-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.scenario === scenarioKey);
+  });
+
+  // Clear previous timers
+  chatTimers.forEach(function(t) { clearTimeout(t); });
+  chatTimers = [];
+
+  msgs.forEach(function(m, i) {
+    var div = document.createElement('div');
+    div.className = 'chat-msg' + (m.right ? ' right' : '');
+    div.innerHTML =
+      '<div class="chat-avatar ' + m.avatarClass + '">' + m.avatar + '</div>' +
+      '<div class="chat-bubble">' +
+        '<div class="chat-sender">' + m.sender + '</div>' +
+        m.msg.replace(/\n/g, '<br>') +
+      '</div>';
+    container.appendChild(div);
+
+    var timer = setTimeout(function() {
+      div.classList.add('show');
+    }, i * 600 + 100);
+    chatTimers.push(timer);
+  });
+}
+
+// Tab clicks
+document.querySelectorAll('.chat-scenario-tab').forEach(function(tab) {
+  tab.addEventListener('click', function() { playChat(tab.dataset.scenario); });
+});
+
+// Replay button
+document.getElementById('chatReplay').addEventListener('click', function() { playChat(currentScenario); });
+
+// Initial play
+playChat('record');
+
+// ===== Smooth nav highlight =====
+var sections = document.querySelectorAll('section[id]');
+var navLinks = document.querySelectorAll('nav .nav-links a');
+window.addEventListener('scroll', function() {
+  var current = '';
+  sections.forEach(function(sec) {
+    var top = sec.offsetTop - 100;
+    if (window.scrollY >= top) current = sec.id;
+  });
+  navLinks.forEach(function(link) {
+    var isActive = link.getAttribute('href') === '#' + current;
+    link.style.color = isActive ? '#667eea' : '';
+    link.style.fontWeight = isActive ? '600' : '';
+  });
+});
+</script>
+
+</body>
+</html>
