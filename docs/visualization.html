@@ -1352,6 +1352,79 @@ footer a { color: #667eea; text-decoration: none; }
         <li class="file-dir" onclick="toggleDir(event, this)">
           <span class="toggle-icon">▶</span>
           <span class="file-icon">📁</span>
+          <span class="file-name">src/cli/</span>
+          <span class="file-desc">— CLI JSON 接口 (外部编排入口)</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">index.ts</span><span class="file-desc">— CLI 主入口、命令分发</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">run-handler.ts</span><span class="file-desc">— 执行用例命令</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">preflight-handler.ts</span><span class="file-desc">— 前置条件检查命令</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">result-handler.ts</span><span class="file-desc">— 查询执行结果</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">report-handler.ts</span><span class="file-desc">— 生成报告</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/core/</span>
+          <span class="file-desc">— 核心基础模块</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">knowledge-base.ts</span><span class="file-desc">— 知识库读写</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">logger.ts</span><span class="file-desc">— 统一日志</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">mailbox.ts</span><span class="file-desc">— Agent 间消息通信</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">task-board.ts</span><span class="file-desc">— 任务看板</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/converters/</span>
+          <span class="file-desc">— 格式转换器</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">bdd-to-json.ts</span><span class="file-desc">— BDD 场景 → JSON 用例</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">result-parser.ts</span><span class="file-desc">— 执行结果解析</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/types/</span>
+          <span class="file-desc">— TypeScript 类型定义</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">index.ts</span><span class="file-desc">— 类型导出入口</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">testcase.ts</span><span class="file-desc">— 测试用例类型</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">result.ts</span><span class="file-desc">— 执行结果类型</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">task.ts</span><span class="file-desc">— 任务类型</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">message.ts</span><span class="file-desc">— 消息类型</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">knowledge.ts</span><span class="file-desc">— 知识库类型</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/schemas/</span>
+          <span class="file-desc">— JSON Schema 校验</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">test-case.schema.json</span><span class="file-desc">— 测试用例 schema</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">ui-map.schema.json</span><span class="file-desc">— UI 映射 schema</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">diagnosis.schema.json</span><span class="file-desc">— 诊断结果 schema</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">mem-cell.schema.json</span><span class="file-desc">— 记忆单元 schema</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">mem-scene.schema.json</span><span class="file-desc">— 记忆场景 schema</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">profile.schema.json</span><span class="file-desc">— Agent 能力 schema</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">patch.schema.json</span><span class="file-desc">— 回滚补丁 schema</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
+          <span class="file-name">src/utils/</span>
+          <span class="file-desc">— 通用工具</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">file-utils.ts</span><span class="file-desc">— 文件读写工具</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
           <span class="file-name">src/tests/</span>
           <span class="file-desc">— 所有测试脚本</span>
           <ul>
@@ -1401,6 +1474,33 @@ footer a { color: #667eea; text-decoration: none; }
                     <li><span class="file-icon">📄</span><span class="file-name">create-mnemonic.test.mjs</span><span class="file-desc">— 创建助记词钱包</span></li>
                   </ul>
                 </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">referral/</span>
+                  <span class="file-desc">— 推荐返佣</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">bind-invite-code.test.mjs</span><span class="file-desc">— 绑定邀请码</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">transfer/cosmos/</span>
+                  <span class="file-desc">— Cosmos 转账</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">transfer.test.mjs</span><span class="file-desc">— Cosmos 链转账</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">utility/</span>
+                  <span class="file-desc">— 通用功能</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">universal-search.test.mjs</span><span class="file-desc">— 全局搜索</span></li>
+                  </ul>
+                </li>
               </ul>
             </li>
             <li class="file-dir" onclick="toggleDir(event, this)">
@@ -1409,8 +1509,35 @@ footer a { color: #667eea; text-decoration: none; }
               <span class="file-name">web/</span>
               <span class="file-desc">— 网页端用例 (端口 9223)</span>
               <ul>
-                <li><span class="file-icon">📄</span><span class="file-name">market/search.test.mjs</span><span class="file-desc">— WEB 搜索用例</span></li>
-                <li><span class="file-icon">📄</span><span class="file-name">market/chart.test.mjs</span><span class="file-desc">— WEB K线图表</span></li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">market/</span>
+                  <span class="file-desc">— 行情模块</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">search.test.mjs</span><span class="file-desc">— WEB 搜索用例</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">chart.test.mjs</span><span class="file-desc">— WEB K线图表</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">perps/</span>
+                  <span class="file-desc">— 合约交易</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">favorites.test.mjs</span><span class="file-desc">— WEB 合约收藏</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">token-search.test.mjs</span><span class="file-desc">— WEB 合约代币搜索</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">utility/</span>
+                  <span class="file-desc">— 通用功能</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">universal-search.test.mjs</span><span class="file-desc">— WEB 全局搜索</span></li>
+                  </ul>
+                </li>
               </ul>
             </li>
             <li class="file-dir" onclick="toggleDir(event, this)">
@@ -1419,7 +1546,35 @@ footer a { color: #667eea; text-decoration: none; }
               <span class="file-name">extension/</span>
               <span class="file-desc">— 插件端用例 (端口 9224)</span>
               <ul>
-                <li><span class="file-icon">📄</span><span class="file-name">market/search.test.mjs</span><span class="file-desc">— 插件搜索用例</span></li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">market/</span>
+                  <span class="file-desc">— 行情模块</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">search.test.mjs</span><span class="file-desc">— 插件搜索用例</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">chart.test.mjs</span><span class="file-desc">— 插件 K线图表</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">perps/</span>
+                  <span class="file-desc">— 合约交易</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">favorites.test.mjs</span><span class="file-desc">— 插件合约收藏</span></li>
+                    <li><span class="file-icon">📄</span><span class="file-name">token-search.test.mjs</span><span class="file-desc">— 插件合约代币搜索</span></li>
+                  </ul>
+                </li>
+                <li class="file-dir" onclick="toggleDir(event, this)">
+                  <span class="toggle-icon">▶</span>
+                  <span class="file-icon">📁</span>
+                  <span class="file-name">utility/</span>
+                  <span class="file-desc">— 通用功能</span>
+                  <ul>
+                    <li><span class="file-icon">📄</span><span class="file-name">universal-search.test.mjs</span><span class="file-desc">— 插件全局搜索</span></li>
+                  </ul>
+                </li>
               </ul>
             </li>
             <li class="file-dir" onclick="toggleDir(event, this)">
@@ -1430,10 +1585,16 @@ footer a { color: #667eea; text-decoration: none; }
               <ul>
                 <li><span class="file-icon">📄</span><span class="file-name">index.mjs</span><span class="file-desc">— CDP 连接、截图、基础工具</span></li>
                 <li><span class="file-icon">📄</span><span class="file-name">market-search.mjs</span><span class="file-desc">— 搜索逻辑 (三端复用)</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">market-chart.mjs</span><span class="file-desc">— K线图表逻辑 (三端复用)</span></li>
                 <li><span class="file-icon">📄</span><span class="file-name">preconditions.mjs</span><span class="file-desc">— 前置条件检查</span></li>
                 <li><span class="file-icon">📄</span><span class="file-name">navigation.mjs</span><span class="file-desc">— 页面导航、关闭弹窗</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">accounts.mjs</span><span class="file-desc">— 账户/钱包操作</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">extension-cdp.mjs</span><span class="file-desc">— 插件端 CDP 连接</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">network.mjs</span><span class="file-desc">— 网络请求工具</span></li>
+                <li><span class="file-icon">📄</span><span class="file-name">transfer.mjs</span><span class="file-desc">— 转账操作工具</span></li>
               </ul>
             </li>
+            <li><span class="file-icon">📄</span><span class="file-name">run.mjs</span><span class="file-desc">— 测试批量执行入口</span></li>
           </ul>
         </li>
         <li class="file-dir" onclick="toggleDir(event, this)">
@@ -1442,9 +1603,16 @@ footer a { color: #667eea; text-decoration: none; }
           <span class="file-name">src/recorder/</span>
           <span class="file-desc">— 操作录制器</span>
           <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">index.mjs</span><span class="file-desc">— 录制器入口</span></li>
             <li><span class="file-icon">📄</span><span class="file-name">listen.mjs</span><span class="file-desc">— 桌面端录制 (监控页 :3210)</span></li>
             <li><span class="file-icon">📄</span><span class="file-name">listen-web.mjs</span><span class="file-desc">— 网页端录制 (监控页 :3211)</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">listen-ext.mjs</span><span class="file-desc">— 插件端录制</span></li>
             <li><span class="file-icon">📄</span><span class="file-name">generate.mjs</span><span class="file-desc">— 录制 → 测试代码生成</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">capture-step.mjs</span><span class="file-desc">— 单步捕获</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">live-record.mjs</span><span class="file-desc">— 实时录制</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">record-flow.mjs</span><span class="file-desc">— 流程录制</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">review.mjs</span><span class="file-desc">— 录制回放审查</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">video.mjs</span><span class="file-desc">— 视频录制</span></li>
           </ul>
         </li>
         <li class="file-dir" onclick="toggleDir(event, this)">
@@ -1455,6 +1623,7 @@ footer a { color: #667eea; text-decoration: none; }
           <ul>
             <li><span class="file-icon">📄</span><span class="file-name">server.ts</span><span class="file-desc">— 面板服务 (端口 5050)</span></li>
             <li><span class="file-icon">📄</span><span class="file-name">index.html</span><span class="file-desc">— 面板页面</span></li>
+            <li><span class="file-icon">📄</span><span class="file-name">recorder.html</span><span class="file-desc">— 录制监控页面</span></li>
             <li><span class="file-icon">📄</span><span class="file-name">test-registry.ts</span><span class="file-desc">— 自动发现用例文件</span></li>
             <li><span class="file-icon">📄</span><span class="file-name">test-executor.ts</span><span class="file-desc">— 执行引擎</span></li>
           </ul>
@@ -1471,6 +1640,15 @@ footer a { color: #667eea; text-decoration: none; }
         <li class="file-dir" onclick="toggleDir(event, this)">
           <span class="toggle-icon">▶</span>
           <span class="file-icon">📁</span>
+          <span class="file-name">src/runner/</span>
+          <span class="file-desc">— 测试执行引擎</span>
+          <ul>
+            <li><span class="file-icon">📄</span><span class="file-name">index.mjs</span><span class="file-desc">— Runner 主逻辑 (状态恢复 + 多策略选择器)</span></li>
+          </ul>
+        </li>
+        <li class="file-dir" onclick="toggleDir(event, this)">
+          <span class="toggle-icon">▶</span>
+          <span class="file-icon">📁</span>
           <span class="file-name">shared/</span>
           <span class="file-desc">— 共享数据文件 (Agent 间通信)</span>
           <ul>
@@ -1478,7 +1656,12 @@ footer a { color: #667eea; text-decoration: none; }
             <li><span class="file-icon">📋</span><span class="file-name">ui-map.json</span><span class="file-desc">— 页面元素地址簿</span></li>
             <li><span class="file-icon">📋</span><span class="file-name">knowledge.json</span><span class="file-desc">— 经验知识库</span></li>
             <li><span class="file-icon">📋</span><span class="file-name">diagnosis.json</span><span class="file-desc">— 失败诊断表</span></li>
+            <li><span class="file-icon">📋</span><span class="file-name">preconditions.json</span><span class="file-desc">— 公共前置条件</span></li>
+            <li><span class="file-icon">📋</span><span class="file-name">mem_cells.json</span><span class="file-desc">— 原始记忆事件</span></li>
+            <li><span class="file-icon">📋</span><span class="file-name">mem_scenes.json</span><span class="file-desc">— 聚类场景</span></li>
+            <li><span class="file-icon">📋</span><span class="file-name">profile.json</span><span class="file-desc">— Agent 能力画像</span></li>
             <li><span class="file-icon">📁</span><span class="file-name">results/</span><span class="file-desc">— 执行结果文件</span></li>
+            <li><span class="file-icon">📁</span><span class="file-name">reports/</span><span class="file-desc">— 质量报告</span></li>
           </ul>
         </li>
       </ul>
