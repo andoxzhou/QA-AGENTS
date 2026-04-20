@@ -1,8 +1,9 @@
 # Market - Confirm Page V2 测试
 
 > 生成时间：2026-04-01
-> 规则引用：`docs/qa/rules/market-rules.md` §9
-> 需求引用：`docs/qa/requirements/Market-ConfirmPageV2.md`
+> 规则文档：`docs/qa/rules/market-rules.md` §9
+> 需求文档：`docs/qa/requirements/Market-ConfirmPageV2.md`
+> 测试端：iOS / Android / Desktop / Extension / Web
 
 ## 测试范围说明
 
@@ -14,14 +15,8 @@
 
 ## 前置条件
 
-- 已登录软件钱包，当前账户有可兑换余额
-- Market 详情页可正常进入 Swap Pro Mode
-- 已准备以下场景的测试 Token 对：
-  - 无需授权的原生币兑换（如 ETH → USDC）
-  - 需要授权的 ERC20 兑换（如 USDC → ETH，USDC 未授权）
-  - Wrap 场景（如 ETH → WETH）
-  - Unwrap 场景（如 WETH → ETH）
-  - 签名链路的聚合器报价（如 1inch 签名链路）
+- 已登录 HD 钱包；Market 详情页可进入 Swap Pro Mode；账户有可兑换余额。
+- 已备齐可测路径：原生↔USDC（无需授权）、USDC→ETH（未授权需 Approve）、ETH↔WETH Wrap/Unwrap、1inch 等签名链路各至少一条。
 
 ---
 
@@ -98,3 +93,4 @@
 | 日期 | 版本说明 |
 |------|----------|
 | 2026-04-01 | 初版：Market Confirm Page V2 测试，覆盖入口生命周期、步骤编排、授权判定与费用刷新、异常状态切换、表单同步与关联回归 |
+| 2026-04-20 | 规范头部（规则文档/测试端）、压缩前置条件为 2 行、术语 HD 钱包 |

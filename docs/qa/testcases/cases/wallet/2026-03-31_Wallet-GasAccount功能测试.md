@@ -1,10 +1,15 @@
 # Wallet - Gas Account / Gas Sponsor 功能测试
 
 > 需求文档：`docs/qa/requirements/Wallet-GasAccount.md`
-> 规则文档：`docs/qa/rules/wallet-rules.md` §8
+> 规则文档：`docs/qa/rules/wallet-rules.md` §8、§8.9
 > 测试端：全端（iOS / Android / Desktop / Extension）
 > 支持链：Ethereum、BSC、BASE、Arbitrum
 > 业务模块覆盖：发送 / Swap / Perps / Earn / dApp
+
+## 前置条件
+
+- 已登录 OneKey ID；支持链（ETH / BSC / BASE / Arbitrum）有余额或可满足最小交易；默认 RPC。
+- 可抓包或查看 `/estimate-fee`、`/send-transaction` 请求；B 类错误场景可 mock 时优先 mock。
 
 ---
 
@@ -74,7 +79,7 @@
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
 | ❗️❗️P0❗️❗️ | 1. Gas-sponsored 交易提交成功 | 1. 在免费态下确认交易<br>2. 交易提交成功 | 1. 显示 Toast 提示<br>2. 文案为"Gas-sponsored transaction submitted"<br>3. 图标为 GiftSolid |
-| ❗️❗️P0❗️❗️ | 1. 普通交易（`payer=user`）提交成功 | 1. 在常规模式下确认交易<br>2. 交易提交成功 | 1. 显示原有成功提示<br>2. 不显示"Gas-sponsored transaction submitted"<br>3. 不显示 GiftSolid 图标 |
+| ❗️❗️P0❗️❗️ | 1. 普通交易（`payer=user`）提交成功 | 1. 在常规模式下确认交易<br>2. 交易提交成功 | 1. 显示与 `payer=user` 匹配的默认完成 Toast（非 Gas-sponsored 文案）<br>2. 不显示"Gas-sponsored transaction submitted"<br>3. 不显示 GiftSolid 图标 |
 
 ---
 
@@ -85,7 +90,7 @@
 | ❗️❗️P0❗️❗️ | 1. Gas-sponsored 交易提交失败<br>2. 错误码为 40201（quote 过期） | 1. 在免费态下确认交易<br>2. 后端返回 40201 | 1. 不显示默认错误 toast<br>2. 自动重置 gas sponsor 相关 UI 状态<br>3. 自动触发一次重新 /estimate-fee<br>4. 重新获取 sponsor quote |
 | ❗️❗️P0❗️❗️ | 1. Gas-sponsored 交易提交失败<br>2. 错误码为 40202（nonce 变化） | 1. 在免费态下确认交易<br>2. 后端返回 40202 | 1. 不显示默认错误 toast<br>2. 自动触发重新 /estimate-fee |
 | P1 | 1. Gas-sponsored 交易提交失败<br>2. 错误码为 40209 或 90201 | 1. 在免费态下确认交易<br>2. 后端返回对应错误码 | 1. 不显示默认错误 toast<br>2. 自动触发重新 /estimate-fee |
-| P1 | 1. A 类错误触发自动重估后<br>2. 重估成功返回新的 gasAccountQuote | 1. 检查确认页状态 | 1. 确认页按新 quote 刷新<br>2. 免费态正常展示（如仍符合条件）<br>3. 用户可再次提交 |
+| P1 | 1. A 类错误触发自动重估后<br>2. 重估成功返回新的 gasAccountQuote | 1. 检查确认页状态 | 1. 确认页按新 quote 刷新<br>2. 免费态展示与重估返回一致（仍符合 sponsor 条件则显示 Free Badge）<br>3. 用户可再次提交 |
 
 ---
 
@@ -96,7 +101,7 @@
 | ❗️❗️P0❗️❗️ | 1. Gas-sponsored 交易提交失败<br>2. 错误码为 40213 | 1. 在免费态下确认交易<br>2. 后端返回 40213 | 1. 不显示默认错误 toast<br>2. `gasAccountTemporarilyDisabled` 设为 true<br>3. payer 切回 user<br>4. 清空 quote / idempotencyKey<br>5. 自动触发一次重新 /estimate-fee<br>6. 确认页切换为用户自付的 Network Fee 模式 |
 | ❗️❗️P0❗️❗️ | 1. Gas-sponsored 交易提交失败<br>2. 错误码为 90200 | 1. 在免费态下确认交易<br>2. 后端返回 90200 | 1. 不显示默认错误 toast<br>2. 自动 fallback 到用户自付<br>3. 确认页显示常规 Network Fee |
 | P1 | 1. Gas-sponsored 交易提交失败<br>2. 错误码为 40218 / 40219 / 90205 之一 | 1. 在免费态下确认交易<br>2. 后端返回对应错误码 | 1. 自动 fallback 到用户自付 |
-| ❗️❗️P0❗️❗️ | 1. B 类错误已触发 fallback<br>2. 确认页切换为用户自付模式 | 1. 查看确认页<br>2. 确认提交 | 1. 显示常规 Network Fee（native token 费用）<br>2. 用户可正常完成交易<br>3. Gas 从用户钱包原生代币扣减 |
+| ❗️❗️P0❗️❗️ | 1. B 类错误已触发 fallback<br>2. 确认页切换为用户自付模式 | 1. 查看确认页<br>2. 确认提交 | 1. 显示常规 Network Fee（native token 费用）<br>2. 用户可完成交易（自付 Gas）<br>3. Gas 从用户钱包原生代币扣减 |
 
 ---
 
@@ -124,7 +129,7 @@
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
 | ❗️❗️P0❗️❗️ | 1. 当前网络使用自定义 RPC<br>2. 发起支持链上的交易 | 1. 进入交易确认页<br>2. 查看 Network Fee 区域 | 1. 不启用 Gas Account<br>2. 不显示免费态<br>3. 显示常规 Network Fee |
-| P1 | 1. 当前网络使用默认 RPC<br>2. Gas Account 可用 | 1. 进入交易确认页 | 1. 正常启用 Gas Account<br>2. 显示免费态（如符合条件） |
+| P1 | 1. 当前网络使用默认 RPC<br>2. Gas Account 可用 | 1. 进入交易确认页 | 1. 启用 Gas Account 估价<br>2. 显示免费态（如符合条件） |
 
 ---
 
@@ -133,8 +138,8 @@
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
 | ❗️❗️P0❗️❗️ | 1. 当日补贴限额尚未用尽<br>2. 发起支持链上的交易 | 1. 进入交易确认页<br>2. 查看 Network Fee 区域 | 1. 显示免费态（Free Badge）<br>2. Gas 由 sponsor 代付 |
-| ❗️❗️P0❗️❗️ | 1. 当日补贴限额已用尽<br>2. /estimate-fee 返回 `payer=user`（`gasAccountEligible=false`） | 1. 发起支持链上的交易<br>2. 进入交易确认页<br>3. 查看 Network Fee 区域 | 1. 不显示免费态<br>2. 显示常规 Network Fee（用户自付）<br>3. 交易流程正常，不阻断 |
-| ❗️❗️P0❗️❗️ | 1. 当日补贴限额已用尽<br>2. 确认页显示常规 Network Fee | 1. 点击提交交易 | 1. 交易正常广播<br>2. Gas 从用户钱包 native token 扣减<br>3. 不包含 quoteId / idempotencyKey |
+| ❗️❗️P0❗️❗️ | 1. 当日补贴限额已用尽<br>2. /estimate-fee 返回 `payer=user`（`gasAccountEligible=false`） | 1. 发起支持链上的交易<br>2. 进入交易确认页<br>3. 查看 Network Fee 区域 | 1. 不显示免费态<br>2. 显示常规 Network Fee（用户自付）<br>3. 交易流程可继续，不阻断 |
+| ❗️❗️P0❗️❗️ | 1. 当日补贴限额已用尽<br>2. 确认页显示常规 Network Fee | 1. 点击提交交易 | 1. 交易已广播<br>2. Gas 从用户钱包 native token 扣减<br>3. 不包含 quoteId / idempotencyKey |
 | ❗️❗️P0❗️❗️ | 1. 当日补贴限额剩余刚好够 1 笔交易<br>2. 连续发起 2 笔交易 | 1. 第 1 笔交易：确认页显示免费态 → 提交成功<br>2. 第 2 笔交易：进入确认页 | 1. 第 1 笔：Gas 由 sponsor 代付，Toast 显示"Gas-sponsored transaction submitted"<br>2. 第 2 笔：确认页显示常规 Network Fee（限额已用尽），用户自付 Gas |
 | P1 | 1. 当日补贴限额已用尽<br>2. 在不同业务模块（发送 / Swap / Perps / Earn / dApp）分别发起交易 | 1. 逐一进入各业务模块的交易确认页 | 1. 所有业务模块均显示常规 Network Fee<br>2. 不出现某个模块仍显示免费态<br>3. 限额状态全局一致 |
 | P1 | 1. 当日补贴限额已用尽<br>2. 次日限额重置后 | 1. 次日发起支持链上的交易<br>2. 进入交易确认页 | 1. 显示免费态（Free Badge）<br>2. Gas 由 sponsor 代付<br>3. 限额重置生效 |
@@ -159,11 +164,11 @@
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
 | ❗️❗️P0❗️❗️ | 1. Gas Account 可用<br>2. Ethereum 链<br>3. 发起 Swap 交易（如 USDC → ETH） | 1. 进入 Swap 确认页<br>2. 查看 Network Fee 区域 | 1. 显示免费态（Free Badge）<br>2. 不要求用户补足 ETH 作为 Gas |
-| ❗️❗️P0❗️❗️ | 1. Swap 确认页显示免费态 | 1. 确认 Swap 交易 | 1. 交易广播<br>2. 用户 ETH 余额不扣 Gas<br>3. Swap 兑换正常完成<br>4. Toast 显示"Gas-sponsored transaction submitted" |
+| ❗️❗️P0❗️❗️ | 1. Swap 确认页显示免费态 | 1. 确认 Swap 交易 | 1. 交易广播<br>2. 用户 ETH 余额不扣 Gas<br>3. Swap 按报价完成兑换<br>4. Toast 显示"Gas-sponsored transaction submitted" |
 | ❗️❗️P0❗️❗️ | 1. Gas Account 可用<br>2. Ethereum 链<br>3. Swap 源币为 ERC-20（需授权）<br>4. 当前未授权 | 1. 进入 Swap 确认页<br>2. 执行 Approve 交易 | 1. Approve 交易的确认页显示免费态<br>2. Approve 提交时 Gas 由 Gas Account 代付<br>3. Approve 完成后 Swap 步骤的确认页同样显示免费态 |
 | ❗️❗️P0❗️❗️ | 1. Gas Account 可用<br>2. BSC 链<br>3. 发起 Swap 交易 | 1. 进入 Swap 确认页<br>2. 确认免费态<br>3. 提交 | 1. 交易广播<br>2. 用户 BNB 余额不扣 Gas |
 | P1 | 1. Gas Account 可用<br>2. BASE / Arbitrum 链<br>3. 发起 Swap 交易 | 1. 进入 Swap 确认页<br>2. 确认免费态<br>3. 提交 | 1. 交易广播<br>2. 用户不扣 Gas |
-| P1 | 1. Gas Account 可用<br>2. Swap 交易提交失败（B 类错误） | 1. 确认 Swap → 后端返回 B 类错误码 | 1. 自动 fallback 到用户自付<br>2. 用户可正常完成 Swap（自付 Gas） |
+| P1 | 1. Gas Account 可用<br>2. Swap 交易提交失败（B 类错误） | 1. 确认 Swap → 后端返回 B 类错误码 | 1. 自动 fallback 到用户自付<br>2. 用户可完成 Swap（自付 Gas） |
 
 ---
 
@@ -202,7 +207,7 @@
 | ❗️❗️P0❗️❗️ | 1. dApp 交易确认页显示免费态 | 1. 确认交易 | 1. 交易广播<br>2. 用户 native token 余额不扣 Gas<br>3. Toast 显示"Gas-sponsored transaction submitted" |
 | ❗️❗️P0❗️❗️ | 1. Gas Account 可用<br>2. 支持链上<br>3. dApp 请求 ERC-20 Token Approve | 1. dApp 触发 Approve 签名请求<br>2. 进入授权确认页<br>3. 查看 Network Fee 区域 | 1. 显示免费态（Free Badge）<br>2. Approve 交易的 Gas 由 Gas Account 代付 |
 | P1 | 1. Gas Account 可用<br>2. 支持链上<br>3. dApp 发起多笔连续交易（Approve + Swap） | 1. 逐笔确认交易 | 1. 每笔交易的确认页均显示免费态<br>2. 每笔交易的 Gas 均由 Gas Account 代付<br>3. 各笔 Toast 均显示"Gas-sponsored transaction submitted" |
-| P1 | 1. Gas Account 可用<br>2. dApp 交易提交失败（B 类错误） | 1. 确认 dApp 交易 → 后端返回 B 类错误码 | 1. 自动 fallback 到用户自付<br>2. 用户可正常完成 dApp 交易（自付 Gas）<br>3. dApp 不因 fallback 而中断交互 |
+| P1 | 1. Gas Account 可用<br>2. dApp 交易提交失败（B 类错误） | 1. 确认 dApp 交易 → 后端返回 B 类错误码 | 1. 自动 fallback 到用户自付<br>2. 用户可完成 dApp 交易（自付 Gas）<br>3. dApp 不因 fallback 而中断交互 |
 | P1 | 1. Gas Account 可用<br>2. 非支持链的 dApp 交易（如 Solana dApp） | 1. dApp 触发交易签名请求<br>2. 进入交易确认页 | 1. 不显示免费态<br>2. 显示常规 Network Fee |
 
 ---
@@ -213,26 +218,26 @@
 
 | 优先级 | 链 | 业务模块 | 操作步骤 | 预期结果 |
 |---|---|---|---|---|
-| ❗️❗️P0❗️❗️ | Ethereum | 发送 | ETH / USDT 转账 → 确认免费态 → Send | 免费态正常，用户不扣 Gas |
-| ❗️❗️P0❗️❗️ | Ethereum | Swap | USDC → ETH Swap → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| ❗️❗️P0❗️❗️ | BSC | 发送 | BNB / USDT 转账 → 确认免费态 → Send | 免费态正常，用户不扣 Gas |
-| ❗️❗️P0❗️❗️ | BSC | Swap | USDC → BNB Swap → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| ❗️❗️P0❗️❗️ | BASE | 发送 | ETH / USDC 转账 → 确认免费态 → Send | 免费态正常，用户不扣 Gas |
-| ❗️❗️P0❗️❗️ | BASE | Swap | Swap 交易 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| ❗️❗️P0❗️❗️ | Arbitrum | 发送 | ETH / USDC 转账 → 确认免费态 → Send | 免费态正常，用户不扣 Gas |
-| ❗️❗️P0❗️❗️ | Arbitrum | Swap | Swap 交易 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | Ethereum | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | Ethereum | Earn | Deposit → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | Ethereum | dApp | 合约交互 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | BSC | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | BSC | Earn | Deposit → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | BSC | dApp | 合约交互 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | BASE | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | BASE | Earn | Deposit → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | BASE | dApp | 合约交互 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | Arbitrum | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | Arbitrum | Earn | Deposit → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
-| P1 | Arbitrum | dApp | 合约交互 → 确认免费态 → 确认 | 免费态正常，用户不扣 Gas |
+| ❗️❗️P0❗️❗️ | Ethereum | 发送 | ETH / USDT 转账 → 确认免费态 → Send | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| ❗️❗️P0❗️❗️ | Ethereum | Swap | USDC → ETH Swap → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| ❗️❗️P0❗️❗️ | BSC | 发送 | BNB / USDT 转账 → 确认免费态 → Send | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| ❗️❗️P0❗️❗️ | BSC | Swap | USDC → BNB Swap → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| ❗️❗️P0❗️❗️ | BASE | 发送 | ETH / USDC 转账 → 确认免费态 → Send | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| ❗️❗️P0❗️❗️ | BASE | Swap | Swap 交易 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| ❗️❗️P0❗️❗️ | Arbitrum | 发送 | ETH / USDC 转账 → 确认免费态 → Send | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| ❗️❗️P0❗️❗️ | Arbitrum | Swap | Swap 交易 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | Ethereum | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | Ethereum | Earn | Deposit → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | Ethereum | dApp | 合约交互 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | BSC | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | BSC | Earn | Deposit → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | BSC | dApp | 合约交互 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | BASE | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | BASE | Earn | Deposit → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | BASE | dApp | 合约交互 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | Arbitrum | Perps | 保证金存入 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | Arbitrum | Earn | Deposit → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
+| P1 | Arbitrum | dApp | 合约交互 → 确认免费态 → 确认 | 免费态符合 §1；用户 native 不因 Gas 扣减 |
 
 ---
 
@@ -240,7 +245,7 @@
 
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
-| ❗️❗️P0❗️❗️ | 1. 分别在 iOS / Android / Desktop / Extension 端<br>2. Gas Account 可用 | 1. 在各端分别发起发送、Swap 交易<br>2. 确认免费态展示 | 1. 各端免费态展示一致（Free Badge + 礼物图标）<br>2. 各端 Gas-sponsored 成功 Toast 一致 |
+| ❗️❗️P0❗️❗️ | 1. 分别在 iOS / Android / Desktop / Extension 端<br>2. Gas Account 可用 | 1. 在各端分别发起发送、Swap 交易<br>2. 确认免费态展示 | 1. 各端免费态展示一致（Free Badge + 礼物图标）<br>2. 各端 Gas-sponsored 提交后 Toast 文案与 GiftSolid 图标一致 |
 | P1 | 1. 在 iOS 端完成一笔 Gas 代付的 Swap 交易 | 在 Desktop 端发起新交易，查看 Gas Account 状态 | Gas Account 状态与 iOS 端同步 |
 
 ---
@@ -262,7 +267,7 @@
 
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
-| ❗️❗️P0❗️❗️ | 1. Gas Account 可用<br>2. 同一端连续发起 5 笔 Gas-sponsored 交易（发送 / Swap 混合） | 1. 第 1 笔交易：确认免费态 → 提交 → 等待成功<br>2. 立即发起第 2 笔 → 提交<br>3. 依次完成至第 5 笔 | 1. 每笔交易均获取独立 quoteId<br>2. 每笔提交均携带对应 quoteId / idempotencyKey<br>3. 不出现 quote 复用或串用<br>4. 所有交易正常广播 |
+| ❗️❗️P0❗️❗️ | 1. Gas Account 可用<br>2. 同一端连续发起 5 笔 Gas-sponsored 交易（发送 / Swap 混合） | 1. 第 1 笔交易：确认免费态 → 提交 → 等待成功<br>2. 立即发起第 2 笔 → 提交<br>3. 依次完成至第 5 笔 | 1. 每笔交易均获取独立 quoteId<br>2. 每笔提交均携带对应 quoteId / idempotencyKey<br>3. 不出现 quote 复用或串用<br>4. 所有交易均已广播 |
 | ❗️❗️P0❗️❗️ | 1. Gas Account 可用<br>2. 连续发起多笔 Gas-sponsored 交易<br>3. 中间某笔触发 A 类错误（40201 quote 过期） | 1. 第 1 笔提交成功<br>2. 第 2 笔触发 40201 → 自动重估<br>3. 重估后继续提交第 2 笔<br>4. 第 3 笔正常提交 | 1. A 类错误后自动重估不影响后续交易<br>2. 后续交易的 quoteId 为新 quote<br>3. 不出现状态残留 |
 
 ---
@@ -271,7 +276,7 @@
 
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
-| ❗️❗️P0❗️❗️ | 1. 同一 Gas Account<br>2. 在 iOS 端和 Desktop 端同时进入交易确认页 | 1. 两端几乎同时进入确认页<br>2. 两端均显示免费态<br>3. 两端几乎同时点击提交 | 1. 两笔交易使用不同 quoteId / idempotencyKey<br>2. 两笔交易均正常广播（或其中一笔因 nonce 冲突触发 A 类重估）<br>3. 不出现双重扣费异常或 quote 冲突 |
+| ❗️❗️P0❗️❗️ | 1. 同一 Gas Account<br>2. 在 iOS 端和 Desktop 端同时进入交易确认页 | 1. 两端几乎同时进入确认页<br>2. 两端均显示免费态<br>3. 两端几乎同时点击提交 | 1. 两笔交易使用不同 quoteId / idempotencyKey<br>2. 两笔交易均已广播（或其中一笔因 nonce 冲突触发 A 类重估）<br>3. 不出现双重扣费异常或 quote 冲突 |
 | P1 | 1. 同一 Gas Account<br>2. 在 iOS 端和 Extension 端同时进入交易确认页<br>3. iOS 端发起发送，Extension 端发起 dApp 交易 | 1. 两端几乎同时点击提交 | 1. 不同业务模块的并发提交互不干扰<br>2. 各自的 quoteId / idempotencyKey 独立<br>3. 两笔交易状态各自正确 |
 
 ---
@@ -281,7 +286,7 @@
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
 | ❗️❗️P0❗️❗️ | 1. 交易确认页显示免费态<br>2.「Send / 确认」按钮可点击 | 1. 快速连续点击提交按钮 3 次 | 1. 仅触发一次交易提交（防抖处理）<br>2. 不出现重复广播<br>3. 不出现多次 Toast |
-| P1 | 1. 交易确认页显示免费态 | 1. 点击提交 → 立即返回 → 重新进入确认页 → 再次提交 | 1. 第一笔交易正常广播<br>2. 第二笔交易获取新 quote<br>3. 不复用上一笔的 quoteId / idempotencyKey |
+| P1 | 1. 交易确认页显示免费态 | 1. 点击提交 → 立即返回 → 重新进入确认页 → 再次提交 | 1. 第一笔交易已广播<br>2. 第二笔交易获取新 quote<br>3. 不复用上一笔的 quoteId / idempotencyKey |
 
 ---
 
@@ -299,7 +304,7 @@
 
 | 优先级 | 场景 | 操作步骤 | 预期结果 |
 |---|---|---|---|
-| P1 | 1. Gas Account 可用<br>2. 反复进出交易确认页 | 1. 进入确认页 → 关闭 → 进入 → 关闭（重复 10 次） | 1. 每次进入均触发 estimate-fee<br>2. 免费态展示 / Badge / 按钮状态正常<br>3. 无内存泄漏或页面响应递减 |
+| P1 | 1. Gas Account 可用<br>2. 反复进出交易确认页 | 1. 进入确认页 → 关闭 → 进入 → 关闭（重复 10 次） | 1. 每次进入均触发 estimate-fee<br>2. 免费态展示 / Badge / 按钮状态与 sponsor 态一致<br>3. 无内存泄漏或页面响应递减 |
 | P1 | 1. Gas Account 可用<br>2. 短时间内跨多个业务模块操作 | 1. 发起 Send → 返回 → 发起 Swap → 返回 → 发起 dApp 交易 | 1. 各业务模块确认页的 Gas Account 状态独立<br>2. 不出现上一模块的 quote / payer 残留到下一模块<br>3. 免费态展示正确 |
 | P2 | 1. estimate-fee 接口响应较慢（2-3s） | 1. 进入确认页<br>2. 等待 estimate-fee 返回 | 1. 费用区域显示加载状态<br>2. 加载期间提交按钮状态=禁用<br>3. 加载完成后正确显示免费态或常规态 |
 
@@ -314,3 +319,4 @@
 | 2026-04-01 | v3：按业务模块拆分测试，新增 Swap（§13）、Perps（§14）、Earn（§15）、dApp（§16）独立章节，新增多链×多模块覆盖矩阵（§17），确保发送/Swap/Perps/Earn/dApp 五大模块在 4 条支持链上均被覆盖 |
 | 2026-04-01 | v2：基于 SignatureConfirm Gas Account 接入 PR 重构，聚焦免费态展示、estimate-fee/send-transaction 新字段、三类错误处理策略、gasAccountTemporarilyDisabled、自定义 RPC 禁用、成功 Toast 区分。移除充值相关用例 |
 | 2026-03-31 | v1：Gas Account 全功能测试（含充值、Activity、黑名单、熔断等） |
+| 2026-04-20 | v6：PR 评审修复 — 新增前置条件节；规则引用 §8.9；预期列去除禁用词「成功/正常」类表述；矩阵预期与 §1 对齐 |
