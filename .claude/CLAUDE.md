@@ -5,10 +5,46 @@ Three-layer multi-agent UI automation testing system for OneKey wallet.
 Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 
 ## OneKey Desktop App
-- **唯一可执行路径**: `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey`
-- **Launch command**: `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey --remote-debugging-port=9222`
-- **CDP URL**: `http://127.0.0.1:9222`
-- **严禁**使用其他路径（如 `OneKey 3.app`、`OneKey.app` 等），只用上面这个
+- **可执行路径可配置**：通过环境变量 `ONEKEY_BIN` 指定，默认 `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey`
+- **CDP URL 可配置**：通过环境变量 `CDP_URL` 指定，默认 `http://127.0.0.1:9222`
+- **Launch command**: `$ONEKEY_BIN --remote-debugging-port=9222`
+- 配置方式：在 `.env` 文件中设置 `ONEKEY_BIN=/your/path/to/OneKey`
+
+### 测试平台选择规则（每次会话必须询问）
+- **每次会话首次需要连接 OneKey 时，必须询问用户要测试的平台**，不论 `.env` 是否已配置：
+  ```
+  请选择要测试的平台：
+  1. 桌面端 TF 包（TestFlight）— /Applications/OneKey-3.localized/OneKey.app
+  2. 桌面端 MAS 包（Mac App Store）— 请提供路径
+  3. 浏览器插件端 — 请提供插件 ID（Extension ID）+ Chrome 用户目录（User Data Dir）
+  4. Web 端 — 请提供要使用的 Chrome 用户目录（User Data Dir）
+  ```
+- **桌面端（选项 1/2）**：用户选择后，将对应路径的 `Contents/MacOS/OneKey` 写入 `.env` 的 `ONEKEY_BIN=`，通过 CDP 连接
+- **插件端（选项 3）**：需要两个信息 — ①Extension ID ②Chrome Profile。自动扫描 `~/Library/Application Support/Google/Chrome/` 下的 Profile 目录，列出可选 profile 让用户选择（显示 profile 名称），然后再询问 Extension ID。Launch command: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222 --user-data-dir=<Chrome根目录> --profile-directory=<Profile N>`
+- **Web 端（选项 4）**：自动扫描并列出可用 Chrome Profile 让用户选择，无需手动输入路径。Launch command: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222 --user-data-dir=<Chrome根目录> --profile-directory=<Profile N>`
+- **Chrome Profile 自动扫描与选择逻辑**：
+  1. 扫描 `~/Library/Application Support/Google/Chrome/` 下的所有 Profile 目录（Default、Profile N）
+  2. 读取每个 Profile 的 `Preferences` 文件获取显示名称
+  3. **只有 1 个 profile → 直接使用，不询问**
+  4. **多个 profile → 列出编号让用户选择**：
+     ```
+     检测到以下 Chrome Profile：
+     1. Default → 个人
+     2. Profile 2 → 用户2
+     3. Profile 3 → 工作
+     请选择要使用的 Profile（输入编号）：
+     ```
+  ```bash
+  # 扫描脚本
+  for dir in ~/Library/Application\ Support/Google/Chrome/Profile* ~/Library/Application\ Support/Google/Chrome/Default; do
+    [ -d "$dir" ] && python3 -c "
+  import json, os
+  prefs = json.load(open(os.path.join('$dir', 'Preferences')))
+  print(f'$(basename "$dir")  →  {prefs.get(\"profile\",{}).get(\"name\",\"unnamed\")}')
+  " 2>/dev/null
+  done
+  ```
+- 用户选择后记住本次会话的平台选择，同一会话内不重复询问
 
 ## CDP & 连接规则（严格执行）
 - **NEVER** use MCP Playwright (`browser_navigate`, `browser_snapshot`, etc.) to connect to OneKey. It's a separate browser instance, not the OneKey app.
@@ -40,13 +76,16 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 | `shared/test_cases.json` | Test Designer | Intent-only test cases |
 | `shared/preconditions.json` | — | 公共前置条件数据库 |
 | `shared/knowledge.json` | Knowledge Builder | Curated patterns |
-| `shared/ui-map.json` | Knowledge Builder | Selector mappings |
+| `shared/ui-map.json` | Knowledge Builder | Current execution selector mappings |
+| `shared/ui-semantic-map.json` | Knowledge Builder | Additive semantic locator registry for generation/maintenance |
+| `shared/generated/app-monorepo-testid-index.json` | Knowledge Builder | Synced app-monorepo testID index |
 | `shared/mem_cells.json` | Knowledge Builder | Raw memory events |
 | `shared/mem_scenes.json` | Knowledge Builder | Clustered scenes |
 | `shared/profile.json` | Knowledge Builder | Agent capability profile |
 | `shared/diagnosis.json` | QA Manager | Failure diagnosis |
 | `shared/results/<id>.json` | Runner | Execution results |
 | `shared/reports/*.md` | Reporter | Quality reports |
+| `shared/reports/review-*.md` | QA Reviewer | Pre-commit review reports |
 
 ## Key Libraries
 - `src/knowledge/memory-pipeline.mjs` — Three-phase memory pipeline (MemCells → MemScenes → Recall)
@@ -59,18 +98,25 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 ## Conventions
 - Test case IDs: `<FEATURE>-<NNN>` (e.g., COSMOS-001)
 - Result files: `shared/results/<id>.json`
-- Selector strategy: ui-map primary → fallbacks → JS evaluate emergency
+- Selector strategy (current execution path): ui-map primary → fallbacks → JS evaluate emergency
+- Selector reference order for new test generation / maintenance: `shared/ui-semantic-map.json` → `shared/generated/app-monorepo-testid-index.json` → `shared/ui-map.json` → runtime exploration
 - Bug fixes require user approval — only diagnosis + repair proposal
-- **自动积累经验**：录制、测试、调试过程中遇到的坑（如选择器失效、CDP 断连、弹窗拦截、时序问题等），自动追加到 `shared/knowledge.json`，无需用户额外指令。ID 递增（K-NNN），category 用 `recording` / `quirk` / `locator` / `timing` 等分类
+- **自动积累经验（强制 · 不等用户提醒）**：录制、测试、调试过程中遇到的坑（如选择器失效、CDP 断连、弹窗拦截、时序问题等），**每次发现后立即追加**到 `shared/knowledge.json`，无需用户额外指令。ID 递增（K-NNN），category 用 `recording` / `quirk` / `locator` / `timing` / `assertion` / `process` 等分类。
+  - **必须触发**的场景：①用户指出脚本/用例有错 ②修复了一个非显而易见的 bug ③发现 DOM 结构与预期不同 ④找到原本 testid/选择器失效的规避方案 ⑤手动操作和自动化行为不一致
+  - **触发时机**：修复动作完成的同一轮对话内沉淀，不要堆到最后，不要等用户说「沉淀一下」
+  - **验证**：每次提交前执行 `git diff shared/knowledge.json`，如果本次对话修了 bug 但 knowledge.json 没变更，说明漏了沉淀，必须补上
 - **规则双写**：修改 `.claude/CLAUDE.md` 或 `.cursorrules` 中的规则时，必须同步更新另一个文件中的对应部分，保持两边一致。无需用户额外确认
+- **QA 三线闭环流程（强制）**：项目包含三条 QA 线（①手动用例 ②API 自动化 ③UI 自动化），各有独立的规范入口和闭环流程，详见 `docs/qa/rules/qa-workflow-rules.md`。**核心规则**：操作前必须先读取对应线路的规范文件（不可凭记忆替代）；操作后必须将新发现沉淀到项目文档（不存 AI 私有记忆）；修改一条线时必须检查对其他两条线的影响。
+- **用户纠正自动沉淀（强制）**：当用户纠正了 AI 生成的用例/脚本/规则内容时，AI 必须在任务完成后主动执行：①列出被纠正的具体内容 ②检查是否已写入对应规范文件（qa-rules.md / module-rules.md / CLAUDE.md 等）③对未覆盖的纠正点，**主动询问用户是否写入规范**。详见 `docs/qa/rules/qa-workflow-rules.md` 「用户纠正自动沉淀机制」章节。
+- **提交前 QA 审查**：commit / PR 前自动执行 `/onekey-qa-review`，检查用例、规则、脚本、Skill 的规范性、一致性和安全性。安全问题硬拦截（不可跳过），其他 block 问题软拦截（可确认跳过）。审查报告保存到 `shared/reports/review-*.md`
 
 ## Default Workflow（写新用例时必须遵循，不要再问）
-0. **录制前必读 `shared/knowledge.json`** — 包含历次录制和测试中积累的经验，避免重复犯错
+0. **录制/生成前必读 `shared/knowledge.json`**，并优先查看 `shared/ui-semantic-map.json` 与 `shared/generated/app-monorepo-testid-index.json` — 避免重复犯错，也避免重复探索已有定位
 1. 启动 OneKey 桌面端（CDP）
 2. 启动录制器 `node src/recorder/listen.mjs`（有 Web 监控 UI http://localhost:3210）
 3. 用户在 app 上操作，录制器自动捕获
 4. 用户说"录制完了" → 停止录制，列出操作清单让用户确认
-5. 确认后 → 生成测试用例 + 更新 ui-map + 写测试脚本
+5. 确认后 → 生成测试用例 + 必要时更新 ui-semantic-map / ui-map + 写测试脚本
 6. **录制/测试过程中遇到新问题，自动追加到 `shared/knowledge.json`**（无需用户指令）
 - 正确流程：**Read knowledge → Record → Update test cases → Update scripts → Write knowledge**
 
@@ -175,6 +221,48 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 - **Token 正则需兼容数字**：代币名可能包含数字（如 XYZ100），正则用 `/^[A-Z][A-Z0-9]{1,9}$/`
 - **DOM 选择器要限定区域**：顶部行情栏的选择器必须加 `r.y < 100` 位置过滤
 
+### Dashboard 实时日志规则（强制执行）
+> 所有用例必须在 Dashboard 执行面板中显示实时步骤日志。QA 能及时看到每步的执行状态和报错，不用等整个用例跑完。
+
+1. **必须使用 `createStepTracker` + `safeStep`**
+   - 每个 testCase 的 `fn(page)` 必须用 `createStepTracker(testId)` 创建步骤跟踪器
+   - 每个操作步骤用 `safeStep(page, t, '步骤名', async () => { ... }, SCREENSHOT_DIR)` 包裹
+   - `fn` 最后必须 `return t.result()` 返回步骤结果
+   - **禁止**使用自定义 `addStep()` 或直接 `console.log` 替代
+
+2. **步骤粒度要求**
+   - 每个有意义的操作（打开页面、输入搜索、点击按钮、验证结果）都必须是一个独立 step
+   - step 名称简洁描述做了什么（如 `搜索 BTC 有结果`、`点击收藏按钮`、`验证价格格式`）
+   - step detail 包含关键数据（如 `3 results`、`price=$1,234.56`、`navigated`）
+
+3. **错误和跳过必须有 detail**
+   - `t.add(name, 'failed', error.message)` — 失败步骤必须带错误信息
+   - `t.add(name, 'skipped', '原因')` — 跳过步骤必须说明原因
+   - **禁止**空 detail 的 failed/skipped 步骤
+
+4. **标准模板**（新用例必须遵循）
+   ```javascript
+   import { createStepTracker, safeStep } from '../../helpers/components.mjs';
+
+   async function testXxx001(page) {
+     const t = createStepTracker('XXX-001');
+     await safeStep(page, t, '步骤 1 描述', async () => {
+       // ... 操作代码
+       return '可选的 detail 信息';
+     }, SCREENSHOT_DIR);
+     await safeStep(page, t, '步骤 2 描述', async () => {
+       // ... 断言代码
+       return `found ${count} items`;
+     }, SCREENSHOT_DIR);
+     return t.result();
+   }
+   ```
+
+5. **日志机制**
+   - `t.add()` 输出 `[OK|FAIL|SKIP] name — detail` 被 executor 实时拦截 → SSE 推送到 Dashboard
+   - 普通 `console.log` 也会实时显示在日志面板中
+   - **只要用了 `createStepTracker` 就自动有实时日志**，无需额外配置
+
 ### 弹窗/Modal 交互规则（严格执行）
 > 来源：Market 搜索脚本三大 bug 的复盘总结。
 
@@ -201,6 +289,7 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 5. **Dashboard 热更新**
    - Dashboard (`src/dashboard/server.ts`) 使用 ESM `import()` 动态加载测试模块，Node.js 会缓存模块。
    - **修改测试脚本后必须重启 Dashboard**（`pkill -f "tsx src/dashboard"` 然后重新启动），否则执行的还是旧代码。
+   - **每次启动 Dashboard 前必须先杀旧进程**：无论 5050 端口是否有响应，都先执行 `pkill -f "tsx src/dashboard"`，等待 1~2 秒后再启动新实例。旧进程可能残留上次的执行状态（running/卡住），导致新执行无法正常启动。
 
 ### 公共组件自动提取规则（严格执行）
 > 来源：组件库建设和 Perps 图表录制过程中的经验总结。
@@ -272,3 +361,86 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 
 ## Task Status Flow
 pending → in_progress → completed | failed | blocked
+
+## Result File Format
+
+`shared/results/<TEST-ID>.json`:
+```json
+{
+  "testId": "ADDR-ADD-001",
+  "status": "passed",
+  "duration": 12345,
+  "steps": [{ "name": "...", "status": "passed", "detail": "..." }],
+  "errors": [],
+  "timestamp": "2026-04-14T05:30:00Z"
+}
+```
+
+## CLI Runner & Dashboard API
+
+```bash
+# CLI Runner
+node src/tests/run.mjs                    # 列出所有可用测试
+node src/tests/run.mjs perps              # 运行整个模块
+node src/tests/run.mjs settings/language  # 运行子路径
+node src/tests/desktop/utility/address-book-add.test.mjs           # 单文件
+node src/tests/desktop/utility/address-book-add.test.mjs ADDR-ADD-003  # 单用例
+
+# Dashboard API
+curl -s http://localhost:5050/api/status
+curl -X POST http://localhost:5050/api/run \
+  -H 'Content-Type: application/json' \
+  -d '{"cases": ["ADDR-ADD-001", "ADDR-VALID-001"]}'
+```
+
+## QA Director 失败路由逻辑
+
+| 根因分类 | 特征 | 路由到 | 处理方式 |
+|---------|------|--------|---------|
+| `selector_stale` | Element not found, selector timeout | Knowledge Builder | 更新 `ui-map.json` |
+| `data_missing` | 余额为 0, Token 未添加 | Knowledge Builder | 更新 `preconditions.json` |
+| `assertion_logic` | Expected X got Y, 正则不匹配 | 用户 | 提供修改建议（不自己改） |
+| `environment` | ECONNREFUSED, Browser closed | 自动 | 重启 OneKey |
+| `timing` | 间歇性失败, 加载中点击 | 用户 | 建议加 wait/轮询 |
+
+## Reporter 格式规则
+
+- 耗时格式：`MM:SS`（如 `3:45` = 3 分 45 秒）
+- 通过率保留一位小数（如 `80.0%`）
+- 失败用例必须附带错误信息摘要和截图路径
+- 同一天多次运行覆盖同一报告文件
+- **永远不删除历史报告**
+
+## Do / Don't 清单
+
+### Do
+- 用 `chromium.connectOverCDP()` 连接 OneKey
+- 启动前检查 CDP，无响应则 pkill + 重启
+- `fn(page)` 单参数签名，兼容 Dashboard executor
+- `_preReport` 模块级缓存前置条件
+- DOM 选择器用 `.first()` / `.nth()` 限定
+- 顶部栏选择器加 `r.y < 100` 位置过滤
+- Token 正则 `/^[A-Z][A-Z0-9]{1,9}$/`
+- 空状态（"未找到"/"暂无代币"）视为正常
+- 截图只在失败时
+- 脚本保持连贯执行流
+- 修改脚本后重启 Dashboard
+- 录制后列出操作清单，用户确认后才生成脚本
+- 提交前执行 `/onekey-qa-review`
+
+### Don't
+- 不要硬编码 OneKey 路径，用 `ONEKEY_BIN` 环境变量
+- 不要用 `open` 命令启动 OneKey 或打开浏览器页面
+- 不要 spawn 第二个 OneKey 实例
+- 不要调用 `page.setViewportSize()`
+- 不要用 MCP Playwright 工具连接 OneKey
+- 不要用未确认的录制结果生成用例
+- 不要越权写入非指定 Writer 的 shared 文件
+- 不要用 `nativeInputValueSetter` + `dispatchEvent`
+- 不要在 CDP Electron 中用 `page.keyboard.type()`，用 `locator.pressSequentially()`
+- 不要用 `Meta+a` 清空输入框
+- 不要反复点击 Modal 触发元素
+- 不要用固定 `sleep()` 等异步结果，用轮询重试
+- 不要关闭 browser 连接
+- 不要没有证据就猜测根因
+- Bug 修复需用户审批，只输出诊断 + 修复建议

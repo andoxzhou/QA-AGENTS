@@ -1,6 +1,14 @@
 {
-  "version": "2.1.0",
-  "lastUpdated": "2026-03-24T03:17:53Z",
+  "version": "2.3.0",
+  "lastUpdated": "2026-04-17T00:00:00Z",
+  "categoryIndex": {
+    "_description": "按类别索引，AI 先看这里快速定位相关条目，不用扫全文",
+    "locator": "K-001,K-017,K-047,K-048,K-050,K-051,K-059,K-072,K-074 — DOM定位/选择器/testid陷阱",
+    "quirk": "K-002~K-005,K-011~K-016,K-018,K-022~K-029,K-031,K-033~K-037,K-039~K-046,K-049,K-052~K-055,K-060,K-065,K-066,K-079 — OneKey/Electron/React行为异常",
+    "process": "K-006,K-007,K-032,K-038,K-058,K-061~K-063,K-068~K-071,K-073,K-076~K-078,K-082,K-083,K-092 — 工作流/前置条件/状态恢复",
+    "assertion": "K-008,K-020,K-030,K-056,K-057,K-064,K-067,K-075,K-080,K-090,K-091,K-093 — 断言策略/校验方法",
+    "recording": "K-009,K-010,K-019 — 录制器相关"
+  },
   "patterns": [
     {
       "id": "K-001",
@@ -297,6 +305,446 @@
       "pattern": "测试中不要重启 app，用页面刷新代替",
       "details": "在 Dashboard 执行器中重启 OneKey app 会导致 CDP 连接断开，后续所有用例无法执行（connectOverCDP timeout）。跨会话持久化验证改用 page.reload() + reloadAndWait()，效果等同但不断连。只有真正需要验证冷启动场景时才手动重启。",
       "confidence": 0.98
+    },
+    {
+      "id": "K-038",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "转账脚本前置条件必须按需执行，不可硬编码固定步骤",
+      "details": "转账测试的前置步骤（切换网络模式、切换网络、切换账户）必须先检测当前状态再决定是否执行：1) 检测当前是否投资组合模式，是则切到单网络模式并选目标网络，已在目标网络则跳过；2) 检测当前账户在目标网络下是否有余额，有则直接用，没有则切换到另一个账户。避免每次都执行完整的网络切换和账户切换流程。",
+      "confidence": 0.97
+    },
+    {
+      "id": "K-039",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "Crypto.org 网络已更名为 Cronos POS Chain",
+      "details": "OneKey v6.2.0 中 Crypto.org 网络显示名改为 Cronos POS Chain，但 testid 仍为 cosmos--crypto-org-chain-mainnet-1，代币选择弹窗中代币名仍显示 Crypto.org。搜索时用 cosmos 可找到。用例文档和脚本中网络名应使用 Cronos POS Chain。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-040",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "Cosmos 备注超限提示是「最大为 512 个字符」而非「512 字节」",
+      "details": "备注输入超过 512 字节时，UI 提示文案为「最大为 512 个字符」。实际限制是 512 字节（UTF-8），但产品 UI 用「字符」描述。脚本断言时匹配文案「512 个字符」或「512」即可。同时「下一步」按钮置灰不可点击。点击「清除」按钮可一键清空备注输入框。",
+      "confidence": 0.97
+    },
+    {
+      "id": "K-041",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "金额输入框禁止输入负号，0 和超余额有不同拦截方式",
+      "details": "转账金额输入框：(1) 负数 — 负号无法输入（输入被前端拦截）；(2) 输入 0 — 显示红色提示「无法发送 0 金额」，预览按钮不可点；(3) 超过余额 — 预览按钮变为「资金不足」灰色不可点。三种拦截方式不同，脚本需分别断言。",
+      "confidence": 0.97
+    },
+    {
+      "id": "K-042",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "交易确认页需等待网络费用加载完才能点击确认按钮",
+      "details": "点击「预览」进入交易确认页后，确认按钮需要等网络费用（预估网络费用）加载完成才可点击。加载期间按钮可能处于禁用或无响应状态。脚本需轮询检测「预估网络费用」文字和按钮可用状态，加载完毕后再点击确认。Cosmos 链通常 2-5 秒，弱网可能更长。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-043",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "Cosmos 系代币转账需要主币余额支付 gas，检测余额不能只看法币",
+      "details": "Cosmos SDK 链（Osmosis、Cosmos 等）转账代币（如 IBC ATOM）时，gas 费用用网络主币（如 OSMO）支付。hasBalance 检查法币余额 > 0 不够——账户可能有代币但主币为 0，导致确认页报错'不足以支付网络费用'且确认按钮灰掉。脚本需在确认页检测此错误，检测到则 cancel + 标记 gas_insufficient。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-044",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "发送页清除备注可能连带清除收款地址",
+      "details": "在发送表单中点击备注区域的「清除」按钮后，不仅备注被清空，收款方地址也可能被清除。后续测试步骤（如输入新备注后点「下一步」）会因为没有收款地址而无法进入下一步。边界测试中每个子场景应重新打开发送表单+重新选择收款人，确保状态干净。",
+      "confidence": 0.95
+    }
+    ,{
+      "id": "K-045",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "Babylon 网络全称为 Babylon Genesis，搜索 Babylon 会匹配到 Testnet",
+      "details": "OneKey v6.2.0 中搜索 Babylon 会返回两个结果：Babylon Genesis（主网）和 Babylon Testnet。脚本必须使用全称 'Babylon Genesis' 搜索，否则 switchNetwork 会因为匹配多个结果而失败。用例文档中也应使用 Babylon Genesis。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-046",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "XRP 网络已更名为 XRP Ledger",
+      "details": "OneKey v6.2.0 中 Ripple 网络更名为 XRP Ledger。搜索关键词用 'XRP' 即可命中。testid 为 select-item-xrp--0（注意格式不同于大多数网络的 select-item-select-item-<impl>--<chainId>）。用例数据集中 Ripple 行脚本搜索应改为 XRP。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-047",
+      "category": "locator",
+      "platform": "desktop",
+      "pattern": "地址簿 Memo/Tag 输入框无 data-testid",
+      "details": "添加地址表单中的 Memo/Tag/Comment 输入框没有 data-testid。定位方式：textarea[placeholder*=\"Memo\"] 或 textarea[placeholder*=\"备忘\"]。placeholder 完整文案为「备忘标签 (Memo, Tag, Comment)」。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-048",
+      "category": "locator",
+      "platform": "desktop",
+      "pattern": "地址簿入口在侧栏底部更多菜单的弹窗中",
+      "details": "地址簿不在侧栏主 Tab 中，需要点击侧栏底部的更多图标（y>680 区域），打开 TMPopover-ScrollView 弹窗，在弹窗中找到文本'地址簿'并点击。弹窗需要遍历所有 TMPopover-ScrollView 实例找可见的那个（width > 0）。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-050",
+      "category": "locator",
+      "platform": "desktop",
+      "pattern": "网络选择器结果行渲染在 portal 中，不在 APP-Modal-Screen DOM 子树内",
+      "details": "网络选择弹窗的搜索结果列表（select-item-{impl}--{chainId}）不在 APP-Modal-Screen 的 DOM 子树内，而是渲染在独立的 portal/overlay 层。必须用 document.querySelectorAll 全局搜索，不能限定在 modal 内。DIV 行容器 testid='select-item-{impl}--{chainId}'（w~624, h~48），SPAN 文本标签 testid='select-item-select-item-{impl}--{chainId}'（w~66）。点击应该用 div[data-testid^='select-item-'] + height>=40 匹配行容器，再用 page.mouse.click 精确坐标点击。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-049",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "地址栏粘贴/清空按钮互斥显示",
+      "details": "地址栏为空时显示「粘贴」按钮（address-form-address-clip），有内容时粘贴按钮消失显示「清空」按钮（address-form-address-clear）。不能先输入内容再点粘贴，必须先清空才能看到粘贴按钮。脚本中测试粘贴功能需要先确保地址栏为空。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-051",
+      "category": "locator",
+      "platform": "desktop",
+      "pattern": "网络搜索结果多个时的选择策略",
+      "details": "搜索网络时可能返回多条结果（如搜 'Cronos' 返回 Cronos 和 Cronos POS Chain；搜 'Ethereum' 返回多个 Ethereum 系）。正确策略：按优先级匹配 - ①完全匹配（text === keyLower，大小写忽略）②前缀匹配 ③后缀匹配 ④首条兜底。实现：遍历所有 div[data-testid^='select-item-']（height>=40, width>=100），按优先级选坐标点击。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-052",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "OneKey 搜索框输入空格：所有键盘输入方式都会被 React 过滤，必须用剪贴板粘贴",
+      "details": "OneKey 网络搜索框（nav-header-search-chain-selector）的 React onChange 会过滤空格字符。pressSequentially('Cronos POS Chain') → 'CronosPOSChain'（空格丢失）；page.keyboard.type(' ') → 空格丢失；page.keyboard.press('Space') → 空格仍然丢失。**唯一可靠方式**：execSync('pbcopy', { input: searchKey }) 写入 OS 剪贴板，然后 page.keyboard.press('Meta+V') 粘贴。模式：if (searchKey.includes(' ')) 走剪贴板路径，否则 pressSequentially。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-053",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "OneKey 搜索大小写敏感（部分场景）",
+      "details": "网络选择器搜索 'Cronos POS Chain'（大写）可能 0 结果，而 'cronos pos chain'（小写）能返回结果。不是所有场景都有这个问题，但保险做法是保留原始大小写 + 配合空格验证 fallback，或者用 toLowerCase() 比较匹配。",
+      "confidence": 0.85
+    },
+    {
+      "id": "K-054",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "JS .click() 不触发 React 事件，必须用 page.mouse.click 或 locator.click",
+      "details": "evaluate 内部 el.click() 对 React 绑定的事件处理器经常无效（特别是容器 DIV）。可靠方式：page.mouse.click(x, y) 模拟真实鼠标事件，或 Playwright locator.click()。但要注意坐标准确 - 错误坐标可能点到其他元素（如 back 按钮）导致意外导航。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-055",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "CDP Electron 下剪贴板：navigator.clipboard 权限受限，用 pbcopy",
+      "details": "Electron 渲染进程中 navigator.clipboard.writeText 经常因权限被拒。document.execCommand('copy') 可能返回 true 但实际没写入 OS 剪贴板。最可靠方式：Node.js execSync('pbcopy', { input: text }) 直接写入 macOS 系统剪贴板，OneKey 的粘贴按钮能读取到。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-056",
+      "category": "assertion",
+      "platform": "desktop",
+      "pattern": "表单错误文本检测：直接匹配特定文案 > 颜色/位置检测",
+      "details": "之前用红色文本 + 位置匹配检测错误，但不可靠：①'最大长度为24个字符' 是红色提示但 24 字符输入时也显示（导致误报）②隐藏/stale input 的坐标可能指向背景区域 ③背景页面（如 Market 页）也有红色涨跌幅文字。可靠方式：直接 textContent 包含特定关键词（'名称不能为空'、'已存在'、'地址无效' 等）+ getBoundingClientRect width>0 检查可见。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-057",
+      "category": "assertion",
+      "platform": "desktop",
+      "pattern": "保存按钮禁用状态多维度检测",
+      "details": "OneKey 保存按钮的禁用状态有多种表现：①disabled 属性 ②aria-disabled='true' ③opacity < 0.7 ④pointer-events: none ⑤cursor: not-allowed ⑥灰色背景（RGB 差异 < 20 且 < 200）。isSaveButtonEnabled 需要综合检查所有这些维度，并向上走 parent 链（button testid 可能是 span，实际 button 在父层）。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-058",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "参数化循环中失败后的状态恢复",
+      "details": "参数化添加循环（63 条无 Memo + 14 条有 Memo）中，某条失败后必须恢复页面状态，否则后续条会全部失败。失败恢复：①Escape 两次关弹窗 ②检查 isOnAddressBookList ③不在则重新 navigateToAddressBook。用 onAddPage 标记状态追踪当前在列表页还是添加页，避免重复 clickAddButton。地址已存在时留在添加页面（onAddPage=true），清空字段继续下一条。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-059",
+      "category": "locator",
+      "platform": "desktop",
+      "pattern": "地址栏清空按钮定位困难，推荐键盘清空",
+      "details": "address-form-address-clear testid 有时不匹配实际清空按钮，fieldset 内按钮扫描可能误匹配到扫描按钮（相机图标）导致打开 QR 扫描页。推荐：①不点清空按钮，用键盘 ta.focus() + ta.select() + Backspace 清空 ②如必须点清空按钮，先记录粘贴按钮坐标（粘贴/清空互斥位置相同），切换后 page.mouse.click 同一坐标。",
+      "confidence": 0.9
+    },
+    {
+      "id": "K-060",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "备注字段 placeholder 差异：Memo / Tag / Note / 备忘 / 备注",
+      "details": "不同链备注字段 placeholder 不同：Cosmos/Stellar/TON → 'Memo' / '备忘'；Ripple/XRP Ledger → 'Tag'；Algorand → '备注' (Note)；某些链完整文案 '备忘标签 (Memo, Tag, Comment)'。isMemoFieldVisible 必须匹配所有这些 placeholder 变体。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-061",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "Dashboard 修改脚本后必须强制重启清端口",
+      "details": "修改 .test.mjs 后仅 pkill 可能留下 EADDRINUSE。标准重启：lsof -ti:5050 | xargs kill -9 → sleep 1 → npx tsx src/dashboard/server.ts。浏览器也需要 Cmd+Shift+R 强刷（避免 SSE 缓存旧状态）。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-062",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "Cursor vs Claude Code 工作流差异",
+      "details": "Cursor 没有 Skill 工具无法强制执行工作流，即使 .cursorrules 写了规则也是建议性的。Claude Code 的 Skill 系统（如 onekey-record-from-file）能强制 Phase 1→4 流程不跳过。要让 Cursor 接近 Claude Code 效果：①每次对话开头 @ 引用 Skill 文件 + knowledge.json + ui-semantic-map.json ②在 .cursorrules 写入详细 Phase 流程（而非简略描述）。PostToolUse hook 可用于规则双写提醒（Edit/Write 到 .cursorrules 或 .claude/CLAUDE.md 时自动提醒同步）。",
+      "confidence": 0.9
+    },
+    {
+      "id": "K-063",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "脚本生成前先读用例文档 + knowledge + ui-semantic-map",
+      "details": "生成 .test.mjs 前强制三件套：①读 docs/qa/testcases/cases/<module>/<file>.md（预期结果用于断言）②读 shared/knowledge.json（避免踩历史坑）③读 shared/ui-semantic-map.json + shared/generated/app-monorepo-testid-index.json（复用已有 selector）。脚本头部必须有覆盖映射注释（testCase id → 用例文档 # 号 + 测试点）。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-064",
+      "category": "assertion",
+      "platform": "desktop",
+      "pattern": "有些测试点难以可靠自动化，标记 SKIP 而不是强试",
+      "details": "以下场景自动化稳定性差，建议 t.add(name, 'skipped', 'SKIP: 原因') 跳过并手动验证：①头像一致性（canvas/SVG 像素比对不稳定）②扫描功能（需摄像头硬件）③粘贴功能与 Electron 剪贴板交互不稳定 ④反复进出页面的页面状态识别。SKIP 要注明原因和建议手动验证点，不要硬编码假断言假装通过。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-065",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "网络名称变更与用例文档同步",
+      "details": "OneKey 网络名称会迭代变更（如 Ripple → XRP Ledger）。脚本中的 searchKey 变更后必须同步更新 docs/qa/testcases/cases/<module>/<file>.md 中的网络名和分组名，并更新相关章节（如网络切换顺序、Memo/Tag 校验的网络列表）。否则 QA 按文档手工回归时会找不到对应网络。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-066",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "React 输入框搜索前清空用 select+Backspace，不用 fill('')",
+      "details": "连续搜索时，`fill('')` 对 React 输入框可能不触发 onChange，残留上次输入内容，导致下次搜索混入旧值（如上次搜 'Cronos POS Chain'，下次搜 'Cosmos' 实际变成 'Cronos POS ChainCosmos'）。可靠做法：page.evaluate(() => { el.focus(); el.select(); }) + page.keyboard.press('Backspace') 强制清空。或者用 Meta+A 选中再 Backspace（注意 Electron 下 Meta+A 可能触发全局快捷键，不如 el.select() 稳定）。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-067",
+      "category": "assertion",
+      "platform": "desktop",
+      "pattern": "列表记录验证：名称含特殊字符时用地址前缀兜底",
+      "details": "verifyRecordInList 只检查 document.body.innerText.includes(name) 对含 '.', '/', '_' 等特殊字符或中文的名称不可靠（CSS word-break / 换行 / 省略号可能拆开文本）。可靠做法：name OR address prefix（取地址前 10 字符，>=6 有效）双重匹配。示例：if (allText.includes(name)) return true; if (addr && addr.length >= 6 && allText.includes(addr.slice(0, 10))) return true;",
+      "confidence": 0.9
+    },
+    {
+      "id": "K-068",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "参数化数据集的 name/group 字段必须与 network 命名规则一致",
+      "details": "Cosmos 系网络命名模式是 'Cosmos-{网络名}'（如 'Cosmos-Celestia'、'Cosmos-Osmosis'、'Cosmos-Fetch.ai'）。脚本数据必须统一：①name 字段 = 'Cosmos-Cronos POS Chain'（不是 'Cosmos-Crypto.org'，后者是代币品牌名不是网络名）②group 字段 = 网络名（'Cronos POS Chain'，不是 'Crypto.org'）③用例文档的表格也要同步更新。违反命名规则会导致 QA 按文档手工对照脚本日志时混淆。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-069",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "每次修复 bug 后的沉淀纪律",
+      "details": "修复任何非显 bug 后必须在同一轮对话内完成：①追加 K-NNN 到 shared/knowledge.json（不要堆到最后批量写）②如涉及规则/约定，同步更新 .claude/CLAUDE.md 和 .cursorrules 两处（规则双写）③如涉及用例文档的数据（网络名/地址/分组），同步更新 docs/qa/testcases/ 下的 .md 文件④git commit 前执行 git diff shared/knowledge.json，本次改了 bug 但 knowledge.json 无变更 = 漏沉淀，补上再提交。不等用户说「沉淀一下」才做。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-071",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "每个 testCase fn 开头必须自行导航到目标页面，不依赖 setup()",
+      "details": "Dashboard 连续执行多个模块时，上一个模块的最后一步可能导航到其他页面（如从合约跳到钱包）。下一个模块的 fn(page) 被调用时页面状态不确定。因此每个 testCase fn 开头必须自行 navigateToPerps(page) / goToPerps(page)，不能依赖 setup() 的预导航。这同样适用于 Market、Wallet 等模块的测试。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-072",
+      "category": "locator",
+      "platform": "desktop",
+      "pattern": "Portfolio 入口与钱包顶栏余额位置重叠 — 必须限定 y > 50",
+      "details": "Perps 页面的 Portfolio 入口（显示 $xx.xx）在 y~60-100 的位置。但钱包顶栏也有余额显示（y~18，如 $21.92）。openPortfolioPopup 的 evaluate 选择器必须加 r.y > 50（或 r.y >= 50）过滤掉顶栏，否则会误点到钱包余额导致 IN_PAGE_TAB_CONTAINER 不出现。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-073",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "破坏性测试步骤（清空收藏/删除数据）后必须恢复，或下一个用例开头检查并自愈",
+      "details": "PERPS-003 Step 4 清空所有收藏后，PERPS-004 预期顶部栏 ≥3 个代币 → 全部 FAIL。解决：①破坏性步骤后添加恢复逻辑（如点击'添加到自选'）②下一个用例开头检查状态，为空则主动触发推荐列表恢复。后者更健壮因为恢复逻辑可能静默失败。同理适用于搜索残留 — 切 tab 前先 clearSearch()。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-074",
+      "category": "locator",
+      "platform": "desktop",
+      "pattern": "TV webview 内「重置布局」是 DIV 不是 button",
+      "details": "OneKey Perps 图表的「重置布局」按钮在 TV webview iframe 内，实际是 <div aria-label='重置布局'> 不是 <button>。用 button[aria-label='重置布局'] 查不到。正确选择器：doc.querySelector('[aria-label=\"重置布局\"]') 或按 textContent === '重置布局' 且 width < 120 的 div 匹配。tvEval 内 throw 的 Error 会传播为 GUEST_VIEW_MANAGER_CALL 错误。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-075",
+      "category": "assertion",
+      "platform": "desktop",
+      "pattern": "Perps 条件单表单校验三层模型：inline → 最小下单金额 → HL 执行价 95%",
+      "details": "条件单（市价/限价止盈止损）下单表单校验分三层：①输入框实时限制（inline）：非法字符、负数、精度、数量 0 由输入框直接阻止输入（不是报错提示），不影响按钮 ②点击下单后优先校验最小下单金额 $10，不满足提示「最小下单 $10」 ③下单金额满足后才会触发 HL 限价类执行价 95% 偏离校验（如触发价 20 + 执行价 999999 + 买入做多 → 超出 95% 报错）。触发价本身无偏离限制。Buy/Sell 方向与止盈/止损不互相限制，任意组合可提交。之前的用例错误地假设：a) 方向+止盈止损有限制 b) 触发价有偏离限制 c) 所有校验都是 post-click，实际 inline 校验和 post-click 校验是分开的。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-076",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "测试脚本中的账户名硬编码需定期同步实际钱包状态",
+      "details": "OneKey 钱包的账户名可能被用户重命名（如 Account #1 → piggy🐷，Account #2 → vault😂）。脚本中的 ACCOUNTS 数组、switchToFundedAccount 的匹配逻辑、switchToAccount 的参数都会因此失效。建议：①脚本开头用 CDP 动态获取当前账户列表 ②或在 test_cases.json/constants 中维护可变数据 ③每次会话开始时快速 probe 确认账户名没变。",
+      "confidence": 0.9
+    },
+    {
+      "id": "K-077",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "观察钱包切换：先选钱包类型 tab 再搜索地址，不依赖账户名",
+      "details": "观察钱包的账户切换流程：①打开账户选择器 ②先点击「观察钱包」tab（确保在正确的钱包类型下，不会搜到 HD 钱包里的账户）③在搜索框输入地址前缀（10 字符）④点击匹配结果 ⑤关闭弹窗回到目标模块。如果搜索不到才触发 importWatchAddress 导入。关键：不能跳过第②步，否则在 HD 钱包 tab 下搜索地址找不到。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-078",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "Portfolio 测试直接用有资产的观察账户，不切 HD 钱包",
+      "details": "Perps Portfolio 测试的主账户改用「高胜率」观察钱包（0x0aac...，有 Perps 持仓），不再切换到 HD 钱包 'ran' 下的 Account #1。好处：①观察钱包通过地址唯一标识，不受重命名影响 ②少一次钱包切换 + 账户搜索 ③高胜率本身有完整的持仓/PnL 数据，适合 Portfolio 全场景测试。空账户也用观察钱包（0xb308...）。三个观察地址在 WATCH_ADDRESSES 常量维护。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-079",
+      "category": "quirk",
+      "platform": "desktop",
+      "pattern": "编辑脚本后多余的 } 导致 Parse error，Dashboard 加载失败不显示用例",
+      "details": "用 Edit 工具替换代码块时，如果旧代码包含函数闭合 }，替换后可能多一个孤立的 }。Dashboard 加载 .test.mjs 时 Parse error 会静默跳过该模块（不报错到前端，只在 /tmp/dashboard.log 里有 '[registry] Failed to load'）。表现：执行面板里用例突然消失。排查：grep 'Failed to load' /tmp/dashboard.log。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-080",
+      "category": "assertion",
+      "platform": "desktop",
+      "pattern": "assertListRendered 的 Overlap 检查对紧凑布局误报",
+      "details": "OneKey 的 tab 栏（自选/永续合约/加密货币...）和列表行（BTCUSDC/ETHUSDC...）使用紧凑布局，元素间 gap 为 -16~-18px（设计意图，不是 bug）。assertListRendered 的 overlap 检查会把这些标记为错误。修复：在 Perps 搜索/收藏等场景下不抛 overlap 错误，只验证 minCount。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-082",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "Perps 搜索前必须先切到正确 tab（如永续合约），并清空残留搜索",
+      "details": "Perps 搜索相关测试必须：①每个 testCase 开头 goToPerps() 确保在合约页 ②搜索前 clickTab('永续合约') 确保在正确子 tab（搜索在不同 tab 下结果不同，如搜「比特」在永续合约有 BTC，在股票无结果）③搜索完或下一个测试前 clearSearch() 清空搜索框（残留内容会影响后续的收藏/Tab 操作）。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-083",
+      "category": "process",
+      "platform": "desktop",
+      "pattern": "TV webview 持久化测试用 Tab 切换替代 page.reload",
+      "details": "验证 TV 图表的指标/收藏/画图/周期持久化时，page.reload() 在 Electron 下导致 webview 完全重载 + canvas 重建，状态经常丢失。改用 sidebar Tab 切换（Perps → DeFi → Perps）：webview 只隐藏不销毁，localStorage 稳定，回来时状态完整，速度快 2-3x，更贴近真实用户行为。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-084",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "钱包/账户头像创建后不支持修改",
+      "details": "OneKey 钱包和账户的头像由系统在创建时生成（颜色+图案/emoji），创建后**用户不能修改**。生成相关用例时不要写「修改头像后同步更新」类场景——操作入口本身不存在。头像一致性只验证跨入口（钱包选择器/发送-选择地址账户 Tab/最近 Tab/账户详情）的展示是否一致，以及同助记词下相同 index 账户头像是否一致。源规则：`docs/qa/rules/account-rules.md` §9.1、`docs/qa/rules/wallet-rules.md` §5.05。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-085",
+      "category": "assertion",
+      "platform": "web",
+      "pattern": "Web 端无常规 Send 转账功能 + Swap 自定义接收地址 Tab 屏蔽范围",
+      "details": "OneKey Web 端（app.onekeytest.com）**没有常规 Send 转账入口**，只能通过 Swap 或 DApp 交互发起链上操作。Web 端 Swap「自定义接收地址」的屏蔽规则：① **屏蔽选择入口**——不展示「最近 / 账户 / 地址簿」三个 Tab，用户不能从列表中选择地址；② **不屏蔽联想提示**——输入框粘贴/输入地址时，若地址属于上述三个数据源，仍需正常展示对应联想标签及名称（与常规 Send 的跨 Tab 联想行为一致）。常见误解：把 Tab 屏蔽等同于联想屏蔽是错误的。源规则：`docs/qa/rules/swap-rules.md` §自定义接收地址、`docs/qa/rules/wallet-rules.md` §5.05。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-086",
+      "category": "process",
+      "platform": "all",
+      "pattern": "Wallet 模块钱包类型术语规范（HD/HW 简写）",
+      "details": "生成 Wallet / Account / Swap 相关用例和文档时，钱包类型必须使用统一简写，不再出现「软件钱包」「硬件钱包」等旧称。规范：HD（已备份）、HD（未备份）、HW、已重置的 HW、私钥账户、Keyless Wallet、QR Wallet、隐藏钱包（=标准隐藏钱包）、未创建标准钱包的隐藏钱包、已删除的隐藏钱包、观察账户、外部账户。注意：① 不再写「已解锁的标准隐藏钱包」，解锁是进入展示的前提而非类型；② 不展示范围用「已删除的隐藏钱包 / 已重置的 HW」，不用「未解锁的隐藏钱包」（后者只是临时 UI 状态）；③ 隐藏钱包默认简称不加「标准」前缀。完整规范见 `docs/qa/rules/wallet-rules.md` §1.1。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-087",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "软断言反例：「以最终设计为准」「不报错就行」「有东西就行」",
+      "details": "生成用例时，预期结果出现以下表述即为软断言，必须改为可验证行为：①「以最终设计为准」「以产品实现为准」② 只断言「不报错」「不崩溃」「有返回」③「afterCount !== beforeCount」「afterList 变了就行」④ 用 try/catch 吞异常然后标 passed。正确做法：给出具体的预期值或 UI 行为（如「不展示『我的账户』标签」「按外部地址处理」「afterCount === beforeCount + 1」）。如确实产品行为待定，用例应阻塞（blocked）等产品确认，不要用软断言兜底。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-088",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "已删除的隐藏钱包 / 已重置的 HW 账户与联想必须一并清理",
+      "details": "用户在钱包选择器主动删除隐藏钱包、或对 HW 执行恢复出厂/重置后，该钱包的账户和地址联想**必须从本地移除**：① 发送流程「选择地址 → 账户」Tab 不再展示其分组与账户；② 发送流程的地址输入框粘贴该钱包原账户地址时，不再显示『我的账户』标签，按外部地址处理；③ Swap 等其他入口的联想也同步清理。相对地，「未解锁的隐藏钱包」只是临时 UI 状态（解锁后会重新出现），不属于真正的清理范畴。源规则：`docs/qa/rules/wallet-rules.md` §5.05（隐藏范围）+ §5.05.1（联想清理）。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-089",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "BTC/LTC 搜索跨路径匹配但结果不展示路径标签",
+      "details": "BTC/LTC 网络下「选择地址 → 账户」Tab 的搜索行为：① 搜索范围跨所有派生路径（Nested SegWit / Native SegWit / Legacy / Taproot），当前选中路径不限制搜索命中；② 搜索结果列表中**不展示**派生路径标签（如 Legacy、Taproot 文字）。生成用例预期时不要写「结果中显示路径标签」——实际 UI 不展示。源规则：`docs/qa/rules/wallet-rules.md` §5.05（搜索时路径过滤）。",
+      "confidence": 0.9
+    },
+    {
+      "id": "K-090",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "最近转账列表是只读投影，不支持删除单条记录",
+      "details": "发送页「最近转账」Tab 的列表来源于两条互不回退的数据源路径（API `transfer-recipient` / 本地历史），列表是只读投影，随数据源自然更新（新转账插入、超过 20 条截尾）。**用户不能在 UI 上删除单条记录**。生成用例时不要写「点击删除某条记录后列表同步移除」这类场景——产品侧本就没有这个入口。源规则：`docs/qa/requirements/Wallet-最近转账.md` §2.4（v2.7 修正）。",
+      "confidence": 0.98
+    },
+    {
+      "id": "K-091",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "跨钱包类型（HD/HW/观察）最近转账一致性只抽查 LNURL 地址字符串",
+      "details": "同一闪电网络账户在 HD 钱包 / HW 钱包 / 观察地址下导入时，最近转账列表**不**要求条数、顺序、memo、tag 完全一致（数据源、缓存、本地历史可能存在差异）。**只抽查**：同一对手的 LNURL 地址字符串完全一致（字符、长度、大小写一致，未截断，未退化为原始 pubkey）。源规则：`docs/qa/requirements/Wallet-最近转账.md` §3 跨钱包类型一致性 + 用例 §9。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-092",
+      "category": "process",
+      "platform": "all",
+      "pattern": "前置条件双向去重",
+      "details": "任何在用例行（场景 / 操作步骤 / 预期结果 / 章节导语）已经描述的信息，**顶部前置条件章节不再重复**；如果某个准备动作只服务于单个 Section 且能写进该 Section 的章节导语，就写在 Section 里而不是顶部。例：Section 7 的 4 个固定观察地址已写入操作步骤，顶部就不要再列一次。配套自检清单见 `docs/qa/qa-rules.md` §7.7「前置条件双向去重」。",
+      "confidence": 0.95
+    },
+    {
+      "id": "K-093",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "最近转账数据源：API vs 本地历史，互不回退；0 金额双端都过滤",
+      "details": "发送页「最近转账」的两条路径是**独立的、不回退**的：① **API 路径**：indexer 支持链（EVM 七条 / UTXO BTC/LTC/DOGE/BCH / Tron）走 `transfer-recipient` 接口，服务端过滤合约交互 + scam + 中心化 Swap + Failed/Dropped + **0 金额**；② **本地历史路径**：非 indexer 链（Aptos / Sui / Cardano / Solana 当前阶段）走本地存储，客户端过滤合约交互 + **0 金额** + 账户隔离。**0 金额两条路径都过滤**（v2.8 更正），『转给自己』仍允许展示。API 返回空不回退本地历史；本地历史也不向上查 API。生成用例时不要写「API 没数据时回退到本地历史」或「API 路径 0 金额允许展示」——都是错的。源规则：`docs/qa/requirements/Wallet-最近转账.md` §2.1+§2.3（v2.8）。",
+      "confidence": 0.97
+    },
+    {
+      "id": "K-094",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "UTXO 聚合维度：BTC/LTC 按 xpub，DOGE/BCH/Tron 按地址",
+      "details": "最近转账的账户聚合规则在 UTXO 链下有区别：① **仅 BTC / LTC** 按扩展公钥（xpub）聚合，所有派生路径（Taproot / Native SegWit / Nested SegWit / Legacy）+ 历史旧地址产生的转账都进入列表；② **DOGE / BCH / Tron** 按单一地址聚合，不走 xpub。EVM 按 lowercase 地址跨链聚合，展示最近一次所在链。生成用例时注意区分，不要把 xpub 规则套用到 DOGE/BCH。源规则：`docs/qa/requirements/Wallet-最近转账.md` §2.2（v2.6）+ 用例 §2.2。",
+      "confidence": 0.95
     }
   ]
 }

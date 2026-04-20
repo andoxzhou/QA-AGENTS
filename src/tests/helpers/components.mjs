@@ -62,6 +62,59 @@ export async function safeStep(page, t, name, fn, screenshotFnOrDir) {
   }
 }
 
+// ── Page Navigation Helpers ─────────────────────────────────
+
+/**
+ * Scroll page and all large scrollable containers to top.
+ * Call before interacting with header elements to ensure they're accessible.
+ */
+export async function scrollToTop(page) {
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    for (const el of document.querySelectorAll('div')) {
+      if (el.scrollTop > 0 && el.scrollHeight > el.clientHeight) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 500 && r.height > 300) el.scrollTo(0, 0);
+      }
+    }
+  });
+  await sleep(300);
+}
+
+/**
+ * If currently on a sub-page (nav-header-back button visible), click back
+ * to return to the main page. Repeats until no back button or maxAttempts.
+ * @returns {number} number of back clicks performed
+ */
+export async function goBackToMainPage(page, maxAttempts = 3) {
+  let clicks = 0;
+  for (let i = 0; i < maxAttempts; i++) {
+    const hasBack = await page.evaluate(() => {
+      const back = document.querySelector('[data-testid="nav-header-back"]');
+      if (back && back.getBoundingClientRect().width > 0) {
+        back.click();
+        return true;
+      }
+      return false;
+    });
+    if (!hasBack) break;
+    clicks++;
+    await sleep(800);
+  }
+  return clicks;
+}
+
+/**
+ * Ensure page is in a clean state before starting a test:
+ * close modals/overlays, go back from sub-pages, scroll to top.
+ */
+export async function ensureCleanState(page) {
+  await dismissOverlays(page);
+  await closeAllModals(page);
+  await goBackToMainPage(page);
+  await scrollToTop(page);
+}
+
 // ── Modal Management ────────────────────────────────────────
 
 export async function isModalVisible(page) {
@@ -141,16 +194,32 @@ export async function openSearchModal(page) {
     if (hasSearchInput) return;
   }
 
-  // Click the header search trigger (NOT the one inside a modal)
-  // registry.resolve returns either a Locator or ClickablePoint — both have .click()
-  const trigger = await registry.resolve(page, 'searchInput', { context: 'page' });
-  await trigger.click();
+  // Click the header search trigger — the input is covered by an overlay div
+  // (UniversalSearchInput.tsx renders a pos-absolute div that intercepts pointer events)
+  // So we use JS click on the overlay or the input directly to bypass Playwright's actionability check.
+  const clicked = await page.evaluate(() => {
+    // Strategy 1: click the overlay div that covers the search input
+    const overlay = document.querySelector('[data-sentry-source-file*="UniversalSearchInput"] div[class*="_pos-absolute"]')
+      || document.querySelector('[data-testid="nav-header-search"]')?.parentElement?.querySelector('div[class*="_pos-absolute"]');
+    if (overlay) { overlay.click(); return 'overlay'; }
+    // Strategy 2: directly click the input element via JS
+    const input = document.querySelector('[data-testid="nav-header-search"]');
+    if (input) { input.click(); return 'input'; }
+    return null;
+  });
+  if (!clicked) {
+    // Fallback: try registry resolve with force click
+    const trigger = await registry.resolve(page, 'searchInput', { context: 'page' });
+    await trigger.click({ force: true });
+  }
   await sleep(800);
 
-  // Verify modal opened; retry once
+  // Verify modal opened; retry once with force click
   if (!(await isModalVisible(page))) {
-    const trigger2 = await registry.resolve(page, 'searchInput', { context: 'page' });
-    await trigger2.click();
+    await page.evaluate(() => {
+      const input = document.querySelector('[data-testid="nav-header-search"]');
+      if (input) input.click();
+    });
     await sleep(1000);
   }
 }
@@ -207,6 +276,184 @@ export async function closeSearch(page) {
   }
   await page.keyboard.press('Escape');
   await sleep(800);
+}
+
+// ── List / Dropdown Visual Assertion ────────────────────────
+// Standard assertion for any visible item list: dropdown options, token rows,
+// search results, settings menu items, etc.
+// Checks: minimum count, non-zero size, no vertical overlap.
+
+/**
+ * Assert that a list of items renders correctly (visible, no overlap, min count).
+ *
+ * @param {import('playwright-core').Page} page
+ * @param {object} opts
+ * @param {string} [opts.testidPrefix]   — match elements whose data-testid starts with this
+ * @param {string} [opts.selector]       — CSS selector to match list items (alternative to testidPrefix)
+ * @param {string} [opts.scope]          — optional parent CSS selector to restrict search (e.g. '[data-testid="APP-Modal-Screen"]')
+ * @param {number} [opts.minCount=2]     — minimum number of visible items expected
+ * @param {number} [opts.overlapTolerance=2] — px tolerance for overlap detection
+ * @param {string[]} [opts.excludeTestids] — exact testid values to skip (e.g. ['select-item-'])
+ * @returns {{ count: number, items: Array<{text,y,h,w}>, errors: string[] }}
+ */
+export async function assertListRendered(page, opts = {}) {
+  const result = await page.evaluate((o) => {
+    const {
+      testidPrefix, selector, scope,
+      minCount = 2, overlapTolerance = 2,
+      excludeTestids = [],
+    } = o;
+
+    // Collect candidate elements
+    let els;
+    const root = scope ? document.querySelector(scope) || document.body : document.body;
+
+    if (testidPrefix) {
+      els = root.querySelectorAll(`[data-testid^="${testidPrefix}"]`);
+    } else if (selector) {
+      els = root.querySelectorAll(selector);
+    } else {
+      return { count: 0, items: [], errors: ['assertListRendered: must provide testidPrefix or selector'] };
+    }
+
+    // Filter to visible items, exclude unwanted testids
+    const items = [];
+    for (const el of els) {
+      const tid = el.getAttribute('data-testid') || '';
+      if (excludeTestids.includes(tid)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        items.push({
+          text: el.textContent?.trim().substring(0, 40) || '',
+          x: Math.round(r.x),
+          y: Math.round(r.y),
+          w: Math.round(r.width),
+          h: Math.round(r.height),
+        });
+      }
+    }
+
+    // Sort by y position
+    items.sort((a, b) => a.y - b.y);
+
+    const errors = [];
+
+    // Check 1: minimum count
+    if (items.length < minCount) {
+      errors.push(`Expected ≥${minCount} visible items, found ${items.length}`);
+    }
+
+    // Check 2: no vertical overlap — each item's top must be ≥ previous item's bottom
+    for (let i = 1; i < items.length; i++) {
+      const prev = items[i - 1];
+      const curr = items[i];
+      const prevBottom = prev.y + prev.h;
+      if (curr.y < prevBottom - overlapTolerance) {
+        errors.push(
+          `Overlap: "${prev.text}" (bottom=${prevBottom}) ↔ "${curr.text}" (top=${curr.y}), gap=${curr.y - prevBottom}px`
+        );
+      }
+    }
+
+    // Check 3: each item has reasonable size (not collapsed/invisible)
+    for (const item of items) {
+      if (item.w < 20 || item.h < 10) {
+        errors.push(`"${item.text}" too small: ${item.w}×${item.h}px`);
+      }
+    }
+
+    return { count: items.length, items, errors };
+  }, opts);
+
+  return result;
+}
+
+/**
+ * Assert that a page/section has loaded successfully:
+ *  - No loading spinner visible
+ *  - Target content area has visible elements (not blank)
+ *  - Optional: specific testid or text is present
+ *
+ * @param {import('playwright-core').Page} page
+ * @param {object} opts
+ * @param {string} [opts.scope]           — CSS selector for the content area to check (default: body)
+ * @param {string} [opts.expectTestid]    — a data-testid that must be visible
+ * @param {string} [opts.expectText]      — text that must appear in the content
+ * @param {number} [opts.minVisibleEls=3] — minimum number of visible elements (non-blank page)
+ * @param {number} [opts.timeout=8000]    — max ms to wait for loading to finish
+ * @returns {{ loaded: boolean, hasSpinner: boolean, visibleCount: number, errors: string[] }}
+ */
+export async function assertPageLoaded(page, opts = {}) {
+  const { scope, expectTestid, expectText, minVisibleEls = 3, timeout = 8000 } = opts;
+
+  // Wait for spinners / skeleton to disappear
+  const start = Date.now();
+  let hasSpinner = true;
+  while (Date.now() - start < timeout) {
+    hasSpinner = await page.evaluate((s) => {
+      const root = s ? document.querySelector(s) || document.body : document.body;
+      // Common spinner / loading patterns
+      const spinnerSelectors = [
+        '[data-testid*="loading"]', '[data-testid*="Loading"]',
+        '[data-testid*="spinner"]', '[data-testid*="Spinner"]',
+        '[data-testid*="skeleton"]', '[data-testid*="Skeleton"]',
+        '.loading', '.spinner', '[role="progressbar"]',
+      ];
+      for (const sel of spinnerSelectors) {
+        const el = root.querySelector(sel);
+        if (el && el.getBoundingClientRect().width > 0) return true;
+      }
+      return false;
+    }, scope);
+    if (!hasSpinner) break;
+    await sleep(500);
+  }
+
+  // Collect page state
+  const result = await page.evaluate((o) => {
+    const root = o.scope ? document.querySelector(o.scope) || document.body : document.body;
+    const errors = [];
+
+    // Count visible elements with real content
+    let visibleCount = 0;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const r = node.getBoundingClientRect();
+      if (r.width > 20 && r.height > 10 && node.children.length === 0) {
+        const text = node.textContent?.trim();
+        if (text && text.length > 0) visibleCount++;
+      }
+    }
+
+    if (visibleCount < o.minVisibleEls) {
+      errors.push(`Page looks blank: only ${visibleCount} visible text elements (expected ≥${o.minVisibleEls})`);
+    }
+
+    // Check for expected testid
+    if (o.expectTestid) {
+      const el = root.querySelector(`[data-testid="${o.expectTestid}"]`);
+      if (!el || el.getBoundingClientRect().width === 0) {
+        errors.push(`Expected testid "${o.expectTestid}" not visible`);
+      }
+    }
+
+    // Check for expected text
+    if (o.expectText) {
+      if (!root.textContent?.includes(o.expectText)) {
+        errors.push(`Expected text "${o.expectText}" not found`);
+      }
+    }
+
+    return { visibleCount, errors };
+  }, { scope, expectTestid, expectText, minVisibleEls });
+
+  return {
+    loaded: !hasSpinner && result.errors.length === 0,
+    hasSpinner,
+    visibleCount: result.visibleCount,
+    errors: hasSpinner ? [`Loading spinner still visible after ${timeout}ms`, ...result.errors] : result.errors,
+  };
 }
 
 // ── Popover Helper ──────────────────────────────────────────
@@ -411,8 +658,10 @@ export async function handlePasswordPrompt(page) {
     for (const input of pwdInputs) {
       const r = input.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
+      // Check in modals, dialogs, or fixed-position full-screen forms (tx signing)
       const inModal = input.closest('[data-testid="APP-Modal-Screen"], [role="dialog"]');
-      if (inModal) return { type: 'password_dialog' };
+      const inFixedForm = input.closest('form[style*="fixed"], form[style*="z-index"]');
+      if (inModal || inFixedForm) return { type: 'password_dialog' };
     }
     return { type: null };
   });
@@ -423,16 +672,49 @@ export async function handlePasswordPrompt(page) {
     return { handled: true, type: 'lock_screen' };
   }
 
-  // Password dialog
+  // Password dialog (may be in modal OR fixed-position form for tx signing)
   console.log('    [adaptive] Password re-verification dialog detected...');
-  const pwdInput = await registry.resolveOrNull(page, 'passwordInput', { context: 'modal', timeout: 1000 });
+
+  // Try registry first (modal context)
+  let pwdInput = await registry.resolveOrNull(page, 'passwordInput', { context: 'modal', timeout: 1000 });
+
+  // Fallback: find password input in fixed form or anywhere visible
+  if (!pwdInput) {
+    const fixedInput = page.locator('input[type="password"]').first();
+    const visible = await fixedInput.isVisible({ timeout: 1000 }).catch(() => false);
+    if (visible) pwdInput = fixedInput;
+  }
+  if (!pwdInput) {
+    const anyPwdInput = page.locator('[data-testid="password-input"]').first();
+    const visible = await anyPwdInput.isVisible({ timeout: 1000 }).catch(() => false);
+    if (visible) pwdInput = anyPwdInput;
+  }
+
   if (pwdInput) {
-    await pwdInput.click();
+    await pwdInput.click({ force: true }).catch(() => {});
     await sleep(200);
     await pwdInput.fill(WALLET_PASSWORD);
     await sleep(300);
+
+    // Try submit button, then Enter key
     const submitBtn = await registry.resolveOrNull(page, 'verifyingPassword', { context: 'modal', timeout: 1000 });
-    if (submitBtn) { await submitBtn.click(); } else { await page.keyboard.press('Enter'); }
+    if (submitBtn) {
+      await submitBtn.click();
+    } else {
+      // Try "确认" button in the form
+      await page.evaluate(() => {
+        const btns = document.querySelectorAll('button');
+        for (const btn of btns) {
+          const t = btn.textContent?.trim();
+          if ((t === '确认' || t === 'OK' || t === 'Confirm') && btn.getBoundingClientRect().width > 0) {
+            btn.click();
+            return;
+          }
+        }
+      });
+      await sleep(300);
+      await page.keyboard.press('Enter');
+    }
 
     for (let i = 0; i < 10; i++) {
       await sleep(500);
@@ -443,7 +725,7 @@ export async function handlePasswordPrompt(page) {
         ].filter(Boolean);
         return inputs.some(input => {
           const r = input.getBoundingClientRect();
-          return r.width > 0 && r.height > 0 && input.closest('[data-testid="APP-Modal-Screen"]');
+          return r.width > 0 && r.height > 0;
         });
       });
       if (!stillVisible) break;
@@ -603,4 +885,103 @@ export async function getCurrentAccount(page) {
     const el = document.querySelector('[data-testid="AccountSelectorTriggerBase"]');
     return el?.textContent?.trim()?.slice(0, 40) || null;
   });
+}
+
+// ── Watch Wallet Import ─────────────────────────────────────
+
+/**
+ * Import a watch-only wallet by address.
+ *
+ * Flow: Wallet page → Account selector → add-wallet → 导入现有钱包 → 观察钱包 → paste address → 确认
+ *
+ * @param {import('playwright-core').Page} page
+ * @param {string} address — EVM address to import (e.g., "0xb308F51259aC794086C13d66e37fadeE8D8abf9a")
+ * @param {object} [options]
+ * @param {string} [options.name] — optional account name
+ * @param {string} [options.network] — network to select (default: auto-detect from address format)
+ * @returns {Promise<string>} — the account name shown after import
+ */
+export async function importWatchAddress(page, address, options = {}) {
+  // Step 1: Navigate to wallet page (account selector is only visible there)
+  await clickSidebarTab(page, 'Wallet');
+  await sleep(2000);
+
+  // Step 2: Open account selector
+  await page.evaluate(() => {
+    document.querySelector('[data-testid="AccountSelectorTriggerBase"]')?.click();
+  });
+  await sleep(2000);
+
+  // Step 3: Click add-wallet button (+ at bottom of wallet type list)
+  await page.evaluate(() => {
+    const modal = document.querySelector('[data-testid="APP-Modal-Screen"]');
+    if (!modal) throw new Error('Account selector modal not found');
+    const btn = modal.querySelector('[data-testid="add-wallet"]');
+    if (!btn) throw new Error('add-wallet button not found');
+    btn.scrollIntoView({ behavior: 'instant', block: 'center' });
+    btn.click();
+  });
+  await sleep(2500);
+
+  // Step 4: Click "导入现有钱包" on the onboarding screen
+  const clickedImport = await page.evaluate(() => {
+    for (const el of document.querySelectorAll('div')) {
+      const t = el.textContent?.trim();
+      const r = el.getBoundingClientRect();
+      if (t === '导入现有钱包了解更多' && r.width > 200 && r.height > 60 && r.height < 120) {
+        el.click();
+        return true;
+      }
+    }
+    return false;
+  });
+  if (!clickedImport) throw new Error('Could not find "导入现有钱包" option');
+  await sleep(2000);
+
+  // Step 5: Click "观察地址" option
+  const clickedWatch = await page.evaluate(() => {
+    for (const el of document.querySelectorAll('span')) {
+      const t = el.textContent?.trim();
+      const r = el.getBoundingClientRect();
+      if (t === '观察地址' && r.width > 0 && r.y > 100) {
+        el.click();
+        return true;
+      }
+    }
+    return false;
+  });
+  if (!clickedWatch) throw new Error('Could not find "观察地址" option');
+  await sleep(2500);
+
+  // Step 6: Enter address via textarea[data-testid="import-address-input"]
+  const addrInput = page.locator('[data-testid="import-address-input"]');
+  await addrInput.click();
+  await addrInput.pressSequentially(address, { delay: 5 });
+  await sleep(1000);
+
+  // Step 6b: Set optional name if provided
+  if (options.name) {
+    const nameInput = page.locator('input[placeholder="账户名称"]');
+    await nameInput.click();
+    await nameInput.pressSequentially(options.name, { delay: 30 });
+    await sleep(500);
+  }
+
+  // Step 7: Click confirm
+  const confirmed = await page.evaluate(() => {
+    const btn = document.querySelector('[data-testid="page-footer-confirm"]');
+    if (btn && !btn.disabled) { btn.click(); return true; }
+    return false;
+  });
+  if (!confirmed) throw new Error('Confirm button not found or disabled');
+  await sleep(3000);
+
+  // Verify: check current account
+  const accountName = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="AccountSelectorTriggerBase"]');
+    return el?.textContent?.trim()?.slice(0, 40) || null;
+  });
+
+  console.log(`  [OK] Imported watch address → account: ${accountName}`);
+  return accountName;
 }

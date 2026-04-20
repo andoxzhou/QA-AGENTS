@@ -60,7 +60,7 @@ async function connectCDP() {
     try {
       const { execSync, spawn: spawnProc } = await import('node:child_process');
       const { existsSync } = await import('node:fs');
-      const ONEKEY_BIN = '/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey';
+      const ONEKEY_BIN = process.env.ONEKEY_BIN || '/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey';
       execSync('pkill -f "OneKey" 2>/dev/null', { stdio: 'ignore' }).toString();
       await new Promise(r => setTimeout(r, 2000));
       if (existsSync(ONEKEY_BIN)) {
@@ -750,6 +750,23 @@ process.on('SIGINT', async () => {
   for (const res of sseClients) res.end();
   monitorServer?.close();
   console.log(`\n  Recording saved: ${allSteps.length} steps → ${RECORDING_DIR}/steps.json`);
+
+  // Post-recording reconciliation: compare recorded elements against map files
+  if (allSteps.length > 0) {
+    try {
+      const { reconcile, formatReport } = await import('./reconcile.mjs');
+      const result = reconcile(allSteps);
+      if (result.changes.length > 0) {
+        console.log('\n' + formatReport(result));
+        console.log(`  ⚠ ${result.changes.length} 项变更待确认，请检查上方报告。`);
+      } else {
+        console.log(`  ✓ 对账完成：${result.summary.matched} 个元素全部匹配，无需更新。`);
+      }
+    } catch (e) {
+      console.log(`  [WARN] 对账检查跳过: ${e.message}`);
+    }
+  }
+
   if (browser) await browser.close().catch(() => {});
   process.exit(0);
 });

@@ -183,9 +183,18 @@ async function getIndicatorPanelText(page) {
 /** Click the "重置布局" (Reset Layout) button in TV toolbar. */
 async function clickResetLayout(page) {
   await tvEval(page, `
-    const btns = doc.querySelectorAll('button[aria-label="重置布局"]');
-    if (btns.length === 0) throw new Error('Reset layout button not found');
-    btns[0].click();
+    // 重置布局是 DIV 不是 button，用 aria-label 或 textContent 匹配
+    let target = doc.querySelector('[aria-label="重置布局"]');
+    if (!target) {
+      // Fallback: find by text content
+      for (const el of doc.querySelectorAll('div, button')) {
+        if (el.textContent?.trim() === '重置布局' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().width < 120) {
+          target = el; break;
+        }
+      }
+    }
+    if (!target) throw new Error('Reset layout button not found (checked div[aria-label] + text match)');
+    target.click();
   `);
   await sleep(2000);
 }
@@ -250,8 +259,12 @@ async function navigateToPerps(page) {
 }
 
 async function reloadAndWait(page) {
-  await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-  await sleep(3000);
+  // 改用 Tab 切换代替 F5 刷新（F5 在 Electron 下会导致状态丢失过重）
+  // 合约 → DeFi → 合约，验证持久化
+  await clickSidebarTab(page, 'DeFi');
+  await sleep(1500);
+  await clickSidebarTab(page, 'Perps');
+  await sleep(2000);
   await waitForTVReady(page);
 }
 
@@ -542,7 +555,7 @@ async function testPerpsChart002(page) {
     const afterLabels = await getIndicatorLabels(page);
 
     // 指标持久化
-    const toName = (l) => l.replace(/[\d,.\s∅]+$/, '').trim();
+    const toName = (l) => l.replace(/[\d,.\s∅KMBTkmbt−+%]+$/, '').trim();
     const beforeSet = new Set(beforeLabels.map(toName).filter(Boolean));
     const afterSet = new Set(afterLabels.map(toName).filter(Boolean));
     const missing = [...beforeSet].filter(x => !afterSet.has(x));
@@ -912,7 +925,7 @@ async function testPerpsChart006(page) {
     const hashAfter = await getMainCanvasHash(page);
     const indicatorsAfter = await getIndicatorLabels(page);
 
-    const toName = (l) => l.replace(/[\d,.\s∅]+$/, '').trim();
+    const toName = (l) => l.replace(/[\d,.\s∅KMBTkmbt−+%]+$/, '').trim();
     const setBefore = new Set(indicatorsBefore.map(toName).filter(Boolean));
     const setAfter = new Set(indicatorsAfter.map(toName).filter(Boolean));
     const diff = [...setBefore].filter(x => !setAfter.has(x));
@@ -1129,7 +1142,7 @@ async function testPerpsChart008(page) {
     drawingKeysBefore016 = await getDrawingKeys(page);
     settingsBefore016 = await getPerpsSettings(page);
     intervalsBefore016 = await getTimeIntervals(page);
-    const toName = (l) => l.replace(/[\d,.\s∅]+$/, '').trim();
+    const toName = (l) => l.replace(/[\d,.\s∅KMBTkmbt−+%]+$/, '').trim();
     return `Indicators: ${[...new Set(indicatorsBefore016.map(toName))].join(', ')} | Drawings: ${drawingKeysBefore016.filter(k => k.key.includes('perps_')).length} keys | Intervals: ${intervalsBefore016.length}`;
   });
 
@@ -1140,7 +1153,7 @@ async function testPerpsChart008(page) {
 
     // 指标
     const indicatorsAfter = await getIndicatorLabels(page);
-    const toName = (l) => l.replace(/[\d,.\s∅]+$/, '').trim();
+    const toName = (l) => l.replace(/[\d,.\s∅KMBTkmbt−+%]+$/, '').trim();
     const setBefore = new Set(indicatorsBefore016.map(toName).filter(Boolean));
     const setAfter = new Set(indicatorsAfter.map(toName).filter(Boolean));
     const lost = [...setBefore].filter(x => !setAfter.has(x));

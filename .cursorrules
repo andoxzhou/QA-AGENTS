@@ -20,8 +20,8 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 - **Reporter** — 只读报告 + 趋势仪表盘
 
 ## Key Paths
-- App binary: `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey`
-- CDP: `http://127.0.0.1:9222`
+- App binary: `$ONEKEY_BIN`（env 可配，默认 `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey`）
+- CDP: `$CDP_URL`（env 可配，默认 `http://127.0.0.1:9222`）
 - Working dir: `/Users/chole/workspace/QA-AGENTS/`
 - Tests: `src/tests/{module}/*.test.mjs`
 - Helpers: `src/tests/helpers/{index,navigation,accounts,network,transfer,preconditions}.mjs`
@@ -45,7 +45,9 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 | File | Exclusive Writer | Description |
 |------|-----------------|-------------|
 | `shared/test_cases.json` | Test Designer | Intent-only test cases |
-| `shared/ui-map.json` | Knowledge Builder | DOM selector mappings |
+| `shared/ui-map.json` | Knowledge Builder | Current execution selector mappings |
+| `shared/ui-semantic-map.json` | Knowledge Builder | Additive semantic locator registry for generation/maintenance |
+| `shared/generated/app-monorepo-testid-index.json` | Knowledge Builder | Synced app-monorepo testID index |
 | `shared/knowledge.json` | Knowledge Builder | Curated test patterns |
 | `shared/preconditions.json` | Knowledge Builder | 公共前置条件数据库 |
 | `shared/mem_cells.json` | Knowledge Builder | 原始记忆事件（MemCells） |
@@ -57,7 +59,16 @@ Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 
 **规则**：每个文件只有指定的 Writer 可以写入，其他角色只读。违反此规则会导致数据冲突。
 
-**自动积累经验**：录制、测试、调试过程中遇到的坑（如选择器失效、CDP 断连、弹窗拦截、时序问题等），自动追加到 `shared/knowledge.json`，无需用户额外指令。ID 递增（K-NNN），category 用 `recording` / `quirk` / `locator` / `timing` 等分类。
+**自动积累经验（强制 · 不等用户提醒）**：录制、测试、调试过程中遇到的坑（如选择器失效、CDP 断连、弹窗拦截、时序问题等），**每次发现后立即追加**到 `shared/knowledge.json`，无需用户额外指令。ID 递增（K-NNN），category 用 `recording` / `quirk` / `locator` / `timing` / `assertion` / `process` 等分类。
+- **必须触发**的场景：①用户指出脚本/用例有错 ②修复了一个非显而易见的 bug ③发现 DOM 结构与预期不同 ④找到原本 testid/选择器失效的规避方案 ⑤手动操作和自动化行为不一致
+- **触发时机**：修复动作完成的同一轮对话内沉淀，不要堆到最后，不要等用户说「沉淀一下」
+- **验证**：每次提交前执行 `git diff shared/knowledge.json`，如果本次对话修了 bug 但 knowledge.json 没变更，说明漏了沉淀，必须补上
+
+**新增公共定位参考层**：新生成脚本、录制后整理公共元素、以及选择器维护时，默认按以下顺序参考：`shared/ui-semantic-map.json` → `shared/generated/app-monorepo-testid-index.json` → `shared/ui-map.json` → 运行时探索。当前阶段只增不替换，禁止因为该层存在而批量修改历史用例执行逻辑。
+
+**QA 三线闭环流程（强制）**：项目包含三条 QA 线（①手动用例 ②API 自动化 ③UI 自动化），各有独立的规范入口和闭环流程，详见 `docs/qa/rules/qa-workflow-rules.md`。**核心规则**：操作前必须先读取对应线路的规范文件（不可凭记忆替代）；操作后必须将新发现沉淀到项目文档（不存 AI 私有记忆）；修改一条线时必须检查对其他两条线的影响。
+
+**用户纠正自动沉淀（强制）**：当用户纠正了 AI 生成的用例/脚本/规则内容时，AI 必须在任务完成后主动执行：①列出被纠正的具体内容 ②检查是否已写入对应规范文件（qa-rules.md / module-rules.md / CLAUDE.md 等）③对未覆盖的纠正点，**主动询问用户是否写入规范**。详见 `docs/qa/rules/qa-workflow-rules.md` 「用户纠正自动沉淀机制」章节。
 
 **规则双写**：修改 `.cursorrules` 或 `.claude/CLAUDE.md` 中的规则时，必须同步更新另一个文件中的对应部分，保持两边一致。无需用户额外确认。
 
@@ -152,6 +163,39 @@ if (isMain) run().catch(e => { console.error(e); process.exit(1); });
 - 前置条件在 `setup()` 中运行并缓存到模块级 `_preReport`，不在每个 fn 中重复运行
 - **永远不要关闭 browser** — 那是用户的 OneKey 实例
 - 脚本必须连贯执行：一个用例 = 一段连续操作流，不拆成多个孤立用例
+
+## Dashboard 实时日志规则（强制执行）
+
+所有用例必须在 Dashboard 执行面板中显示实时步骤日志。QA 能及时看到每步的执行状态和报错，不用等整个用例跑完。
+
+1. **必须使用 `createStepTracker` + `safeStep`**
+   - 每个 testCase 的 `fn(page)` 必须用 `createStepTracker(testId)` 创建步骤跟踪器
+   - 每个操作步骤用 `safeStep(page, t, '步骤名', async () => { ... }, SCREENSHOT_DIR)` 包裹
+   - `fn` 最后必须 `return t.result()` 返回步骤结果
+   - **禁止**使用自定义 `addStep()` 或直接 `console.log` 替代
+
+2. **步骤粒度要求**
+   - 每个有意义的操作（打开页面、输入搜索、点击按钮、验证结果）都必须是一个独立 step
+   - step 名称简洁描述做了什么（如 `搜索 BTC 有结果`、`点击收藏`、`验证价格格式`）
+   - step detail 包含关键数据（如 `3 results`、`price=$1,234.56`）
+
+3. **错误和跳过必须有 detail**
+   - `t.add(name, 'failed', error.message)` — 失败必须带错误信息
+   - `t.add(name, 'skipped', '原因')` — 跳过必须说明原因
+   - **禁止**空 detail 的 failed/skipped 步骤
+
+4. **标准模板**（新用例必须遵循）
+   ```javascript
+   import { createStepTracker, safeStep } from '../../helpers/components.mjs';
+   async function testXxx001(page) {
+     const t = createStepTracker('XXX-001');
+     await safeStep(page, t, '步骤描述', async () => {
+       // 操作 + 断言
+       return 'detail 信息';
+     }, SCREENSHOT_DIR);
+     return t.result();
+   }
+   ```
 
 ## 1:1 用例对照规则（生成脚本时最重要的规则）
 
@@ -320,6 +364,7 @@ Dashboard executor (`test-executor.ts`) 通过 `testCases.fn(page)` 或 `mod.run
 - Filter DOM selectors with `.first()` / `.nth()` when multiple matches
 - Use position filter `r.y < 100` for top bar selectors to avoid matching other areas
 - Use token regex `/^[A-Z][A-Z0-9]{1,9}$/` (tokens can contain digits like XYZ100)
+- Run `/onekey-qa-review` before commit/PR — checks rules, test cases, scripts, skills, and security
 - Treat empty state (no tokens, shows "未找到"/"暂无代币") as valid, not failed
 - Take screenshots only on failure — screenshots severely slow down execution
 - Keep test scripts as continuous flow (no disconnects mid-test)
@@ -329,7 +374,7 @@ Dashboard executor (`test-executor.ts`) 通过 `testCases.fn(page)` 或 `mod.run
 - Verify selectors via CDP before adding to `ui-map.json`
 
 ## Don't
-- Never use any path other than `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey`
+- Never hardcode OneKey path — always通过 `ONEKEY_BIN` 环境变量或 constants.mjs 引用
 - Never use `open` command to launch OneKey or open browser pages
 - Never spawn a second OneKey instance (pkill first, then restart)
 - Never call `page.setViewportSize()` — use user's current window size
@@ -364,24 +409,62 @@ Dashboard executor (`test-executor.ts`) 通过 `testCases.fn(page)` 或 `mod.run
 pending → in_progress → completed | failed | blocked
 
 ## Workflow: New Test
-Read `shared/knowledge.json` → record (listen.mjs) → user confirms actions → generate .test.mjs + update ui-map + update test_cases.json → if encountered issues, append to knowledge.json
+Read `shared/knowledge.json` + `shared/ui-semantic-map.json` + `shared/generated/app-monorepo-testid-index.json` → record (listen.mjs) → user confirms actions → generate .test.mjs + update ui-semantic-map / ui-map + update test_cases.json → if encountered issues, append to knowledge.json
 
 ## Workflow: Failure Fix
 Read results → classify root cause (5 types) → route to handler → fix → rerun → verify
 
 ---
 
+## 测试平台选择规则（每次会话必须询问）
+
+**每次会话首次需要连接 OneKey 时，必须先询问用户要测试的平台**，不论 `.env` 是否已配置：
+
+```
+请选择要测试的平台：
+1. 桌面端 TF 包（TestFlight）— /Applications/OneKey-3.localized/OneKey.app
+2. 桌面端 MAS 包（Mac App Store）— 请提供路径
+3. 浏览器插件端 — 请提供插件 ID（Extension ID）+ Chrome 用户目录（User Data Dir）
+4. Web 端 — 请提供要使用的 Chrome 用户目录（User Data Dir）
+```
+
+- **桌面端（选项 1/2）**：用户选择后，将路径写入 `.env` 的 `ONEKEY_BIN=`，通过 CDP 连接
+- **插件端（选项 3）**：需要两个信息 — ①Extension ID ②Chrome Profile。自动扫描 `~/Library/Application Support/Google/Chrome/` 下的 Profile 目录，列出可选 profile 让用户选择（显示 profile 名称），然后再询问 Extension ID。Launch command: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222 --user-data-dir="$HOME/Library/Application Support/Google/Chrome" --profile-directory="<Profile N>"`
+- **Web 端（选项 4）**：自动扫描并列出可用 Chrome Profile 让用户选择，无需手动输入路径。Launch command: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --remote-debugging-port=9222 --user-data-dir="$HOME/Library/Application Support/Google/Chrome" --profile-directory="<Profile N>"`
+- **Chrome Profile 自动扫描与选择逻辑**：
+  1. 扫描 `~/Library/Application Support/Google/Chrome/` 下所有 Profile 目录
+  2. **只有 1 个 profile → 直接使用，不询问**
+  3. **多个 profile → 列出编号让用户选择**：
+     ```
+     检测到以下 Chrome Profile：
+     1. Default → 个人
+     2. Profile 2 → 用户2
+     请选择要使用的 Profile（输入编号）：
+     ```
+  ```bash
+  for dir in ~/Library/Application\ Support/Google/Chrome/Profile* ~/Library/Application\ Support/Google/Chrome/Default; do
+    [ -d "$dir" ] && python3 -c "
+  import json, os
+  prefs = json.load(open(os.path.join('$dir', 'Preferences')))
+  print(f'$(basename \"$dir\")  →  {prefs.get(\"profile\",{}).get(\"name\",\"unnamed\")}')
+  " 2>/dev/null
+  done
+  ```
+- 用户选择后记住本次会话的平台选择，同一会话内不重复询问
+
+---
+
 ## OneKey CDP 自动化（适用于所有 OneKey 相关操作）
 
-**任何涉及 OneKey 桌面端操作的指令，都必须先确保 CDP 连接就绪。这是自动行为，不需要询问用户。**
+**确认平台后，必须确保 CDP 连接就绪。CDP 启动是自动行为，但平台选择必须先询问用户。**
 
 ```bash
 # Step 1: 检查 CDP
 curl -s http://127.0.0.1:9222/json/version
 
-# Step 2: 如果无响应，自动启动（唯一路径，严禁用其他路径）
+# Step 2: 如果无响应，自动启动（路径通过 $ONEKEY_BIN 环境变量配置）
 pkill -f "OneKey" 2>/dev/null; sleep 2
-/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey --remote-debugging-port=9222 &
+$ONEKEY_BIN --remote-debugging-port=9222 &
 sleep 5
 
 # Step 3: 再次验证
@@ -408,7 +491,8 @@ curl -s http://127.0.0.1:9222/json/version
 
 **自动执行步骤：**
 
-1. **确保 OneKey CDP 就绪**（见上方 CDP 自动化）
+1. **询问测试平台**（见上方"测试平台选择规则"，每次会话首次必须询问）
+2. **根据选择的平台确保 CDP 就绪**（见上方 CDP 自动化）
 2. **启动 Dashboard 执行面板（端口 5050）**：
    ```bash
    # 检查 Dashboard 是否已运行
@@ -467,19 +551,132 @@ curl -s http://127.0.0.1:9222/json/version
 
 **角色**：Record From File — 读取用例文件 → 重编排场景 → 引导录制。
 
-**自动执行步骤：**
+> ⚠️ **这是最核心的录制流程，必须严格按 Phase 1~4 顺序执行，不可跳过任何阶段。**
 
-1. **读取 @ 引用的用例文件**，提取可录制场景
-2. **场景重编排**（intent-only）：
-   - 每个场景 = 一段连续用户操作流
-   - 为每个场景生成：场景 ID（`MODULE-FEATURE-NNN`）、前置条件、录制步骤（只写行为意图，不写 selector）、关键验证点
-3. **覆盖检查**：
-   - 列出"用例要求"→"已归属到哪个场景/步骤/验证点"的映射
-   - 标注不稳定/难自动化点及替代断言方案
-   - 输出参数化覆盖清单（同一场景多个等价输入参数必须列出）
-4. **确保 OneKey CDP 就绪 + 启动录制器**（同上）
-5. **逐场景引导录制**：告诉用户当前录制的场景名 + 步骤
-6. 用户说"录完了" → 停止录制 → 列出操作清单 → 等用户确认
+---
+
+#### Phase 1: 读取用例与场景重编排（录制前必须完成）
+
+**1.1 强制前置读取（不可跳过）：**
+```
+必须在编排前读取以下 3 个文件：
+- shared/knowledge.json — 避免重复踩坑
+- shared/ui-semantic-map.json — 复用已有选择器
+- shared/generated/app-monorepo-testid-index.json — 参考已知 testid
+```
+
+**1.2 读取用户 @ 引用的用例文件**，提取所有可录制场景。
+
+**1.3 场景重编排（intent-only）：**
+- 每个场景 = 一段连续用户操作流（操作连贯、前置条件相同、UI 上下文不切换的用例才可合并）
+- 为每个场景生成：
+  - 场景 ID（`MODULE-FEATURE-NNN`）
+  - 前置条件（数据/页面状态）
+  - 录制步骤（只写行为意图，不写 selector）
+  - 关键验证点（仅列"必须观察"的要点）
+
+**1.4 覆盖检查与补充建议（强制输出）：**
+
+| 输出项 | 说明 |
+|--------|------|
+| 覆盖映射表 | 用例文档每条要求 → 归属场景/步骤/验证点 |
+| 不稳定/难自动化点 | 标注原因 + 可执行的替代断言（如用文本/跳转替代颜色/样式） |
+| 数据建议 | 需要特定数据才能覆盖的点，给出可复用输入集 |
+| **参数化覆盖清单（强制）** | 同一场景若有多个等价输入参数，必须输出 `params` 列表并标明覆盖的测试点 |
+
+**1.5 展示编排结果，等待用户确认后才进入 Phase 2。**
+
+编排输出格式示例：
+```
+用例编排计划（共 N 个用例 → M 段录制流）：
+
+录制 1 → 场景 XXX-001「场景名」
+  前置条件：...
+  步骤：1. ... 2. ... 3. ...
+  验证点：...
+
+录制 2 → 场景 XXX-002+003「合并场景名」（合并原因：...）
+  步骤：...
+
+覆盖检查：
+| 用例要求 | 归属场景 | 验证方式 |
+|---------|---------|---------|
+| ... | ... | ... |
+
+参数化覆盖清单：
+- 无 Memo 网络集（N 条）：BTC, ETH, SOL, ...
+- 有 Memo 网络集（N 条）：Cosmos, Ripple, ...
+- 异常输入集：空字符串, 特殊字符, 超长输入, ...
+
+请确认编排方案，确认后开始逐段录制。
+```
+
+---
+
+#### Phase 2: 启动环境（CDP + Recorder）
+
+1. **确保 OneKey CDP 就绪**（见上方 CDP 自动化）
+2. **启动录制器**：
+   ```bash
+   cd /Users/chole/workspace/QA-AGENTS && nohup node src/recorder/listen.mjs > /tmp/recorder.log 2>&1 &
+   ```
+   监控 UI：`http://localhost:3210`
+
+---
+
+#### Phase 3: 逐场景引导录制
+
+对每个场景循环执行：
+1. 告诉用户「现在录制的场景名 + 操作步骤」
+2. 用户完成后说"录完了"
+3. 读取 `shared/results/recording/steps.json`
+4. **进入 Phase 4 操作清单确认**
+
+**连续录制注意**：录完一个场景后，提醒用户在 Monitor UI 点 **"New Session"** 清空步骤再录下一个。
+
+---
+
+#### Phase 4: 操作清单确认（不可跳过 ⚠️）
+
+**强制列出所有录制步骤，等待用户确认：**
+
+```
+录制步骤确认：
+
+| # | 类型 | 元素 | 内容 | selector |
+|---|------|------|------|----------|
+| 1 | CLICK | [元素描述] | ... | [data-testid="..."] |
+| 2 | INPUT | [元素描述] | 输入值 | [data-testid="..."] |
+| ... | ... | ... | ... | ... |
+
+请确认以上步骤顺序和完整性。
+```
+
+用户反馈处理：
+- **确认** → 继续下一场景或进入脚本生成
+- **删步骤/改顺序/补充** → 更新清单后重新展示，直到用户确认
+
+---
+
+#### 录制结束后的自动更新（强制 ⚠️）
+
+全部场景录制确认后，**必须自动执行**：
+
+1. **更新 `shared/ui-semantic-map.json`**：把录制中新发现的 testid 补充进去
+2. **更新 `shared/knowledge.json`**：把录制中发现的新经验/坑追加为新条目（K-NNN 递增）
+3. **生成脚本时**：
+   - 先读取对应用例文档，逐条对照"预期结果"编写断言
+   - 脚本头部含覆盖映射表注释
+   - 使用 `createStepTracker` + `safeStep` 模式
+   - 参数化数据在脚本顶部定义为数组常量
+
+---
+
+#### 录制结束门禁（三项全部满足才能宣告完成）
+
+1. **步骤一致性（Strict Replay）**：脚本必须按确认清单的步骤顺序执行
+2. **定位收敛**：每个关键动作都必须落到可稳定定位的实现（data-testid 优先）
+3. **可重复执行**：至少本地跑通一次
 
 ---
 
@@ -719,6 +916,8 @@ throw new Error('Results not loaded');
 ### Dashboard 热更新注意
 
 修改测试脚本后**必须重启 Dashboard**（`pkill -f "tsx src/dashboard"` 后重启），否则执行的是旧代码。
+
+**每次启动 Dashboard 前必须先杀旧进程**：无论 5050 端口是否有响应，都先执行 `pkill -f "tsx src/dashboard"`，等待 1~2 秒后再启动新实例。旧进程可能残留上次的执行状态（running/卡住），导致新执行无法正常启动。
 
 ---
 
