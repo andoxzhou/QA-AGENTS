@@ -695,6 +695,12 @@
 
 ### 风控
 - 高滑点/高 price impact 强提醒；目标合约风险提示；最小收到保护
+- **价值下跌提示（Value Drop Warning）**：
+  - 触发条件：高 value drop 报警
+  - 视觉：红色 critical 卡片、红色百分比标题、destructive 样式 Continue 按钮
+  - 交互：确认复选框 + 5 秒倒计时，倒计时结束后 Continue 可点击
+  - 重置：取消/重新勾选复选框时倒计时重置为 5 秒
+  - 埋点：`valueDropTipContinue` / `valueDropTipCancel`，含 from/to token 符号、数量、法币值、链 ID、跌幅百分比、勾选状态
 
 ### 数据源
 - 路由/报价来源标识、刷新倒计时、WS/轮询策略一致
@@ -745,6 +751,9 @@
 ---
 
 ## 📅 变更记录
+
+### 2026-04-01
+- 新增风控章节：价值下跌提示（Value Drop Warning）规则 — 视觉、倒计时、重置、埋点
 
 ### 2026-01-21
 - 清理接口、API、E2E、字段验证相关内容，仅保留功能测试规则

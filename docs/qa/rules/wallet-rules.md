@@ -255,7 +255,70 @@ Wallet 模块包含以下核心功能：
 
 ---
 
-## 8. 通用规则
+## 8. Gas Account 规则
+
+### 8.1 功能定位
+
+Gas Account 是 OneKey 钱包内的"代付 Gas 账户"，用户充值 USDT 等值资产后，可用于支付多链交易的 Gas 费用。
+
+### 8.2 账户体系
+
+| 用户类型 | 能力 |
+|---------|------|
+| 未登录用户 | 可享受平台补贴额度（Guest 模式） |
+| 已登录 OneKey ID 用户 | 充值、提现、查看记录，所有地址共享余额 |
+
+### 8.3 赞助规则
+
+| 规则 | 内容 | 不通过时行为 |
+|------|------|-------------|
+| 链白名单 | evm--1 (ETH), evm--137 (Polygon), evm--42161 (Arbitrum), evm--10 (Optimism), evm--56 (BSC) | 返回不支持 |
+| 余额检查 | Gas Account 余额 ≥ 该笔 Gas 费用 | 返回余额不足 |
+| 地址黑名单 | from_address 不在封禁列表 | 返回不支持 |
+| Gas 价格熔断 | ETH maxGwei=200, Polygon maxGwei=500 | 暂停赞助 |
+
+### 8.4 API 接口
+
+**EstimateFee 返回字段**：`gasAccountInfo.isGasAccountAvailable` / `balanceIsEnough` / `chainNotSupport` / `errMsg` / `cost`（totalCost, txCost, gasCost, estimateTxCost）
+
+**sendTransaction 请求字段**：`feePaymentMethod: "gas_account"`
+
+### 8.5 费用结构
+
+| 字段 | 含义 |
+|------|------|
+| totalCost | 用户实际扣费 = txCost + gasCost |
+| txCost | 给用户转账的 gas 值 |
+| gasCost | 链上 gas 成本 |
+| estimateTxCost | 预估交易成本（前端展示参考） |
+
+### 8.6 充值规则
+
+| 项目 | 规则 |
+|------|------|
+| 充值方式 | Apple Pay（第一期） |
+| 预设金额 | $10 / $20 / $50 |
+| 自定义金额 | 支持用户自定义输入 |
+| 到账时间 | 即时到账 |
+
+### 8.7 交易确认页规则
+
+| 项目 | 规则 |
+|------|------|
+| 开关位置 | 交易确认页 Network Fee 区域 |
+| 开关条件 | EstimateFee 返回 isGasAccountAvailable=true 时显示 |
+| 余额不足 | 引导登录/充值 |
+| 不支持链 | 不显示开关或显示不支持提示 |
+
+### 8.8 记录与流水
+
+- 记录类型：Gas 代付、充值、提现
+- 记录字段：network_id, from_address, user_tx_hash, gas_tx_hash, total_cost, tx_cost, gas_cost, status (pending/success/failed), created_at, confirmed_at
+- 支持按类型筛选
+
+---
+
+## 9. 通用规则
 
 ### 状态机
 - 钱包首页加载 → 资产刷新 → Token 管理 → 历史记录
@@ -288,7 +351,7 @@ Wallet 模块包含以下核心功能：
 
 ---
 
-## 9. 规则维护指南
+## 10. 规则维护指南
 
 ### 如何更新规则
 
@@ -303,10 +366,11 @@ Wallet 模块包含以下核心功能：
 
 ---
 
-## 10. 变更记录
+## 11. 变更记录
 
 | 日期 | 变更内容 |
 |------|---------|
 | 2026-01-23 | 初始版本，整合 Wallet 模块规则，引用 transfer-chain-rules.md |
 | 2026-02-27 | 新增「从交易所接收」规则章节（Binance API、OKX、Coinbase） |
 | 2026-03-10 | 更新「从交易所接收」规则：入口默认展开、新增 ExchangeOpenRedirect 页面、OKX/Coinbase 流程重构 |
+| 2026-03-31 | 新增「Gas Account」规则章节（赞助规则、API 接口、费用结构、充值、交易确认页） |
