@@ -1,12 +1,12 @@
 {
-  "version": "2.3.0",
-  "lastUpdated": "2026-04-17T00:00:00Z",
+  "version": "2.3.1",
+  "lastUpdated": "2026-04-20T00:00:00Z",
   "categoryIndex": {
     "_description": "按类别索引，AI 先看这里快速定位相关条目，不用扫全文",
     "locator": "K-001,K-017,K-047,K-048,K-050,K-051,K-059,K-072,K-074 — DOM定位/选择器/testid陷阱",
     "quirk": "K-002~K-005,K-011~K-016,K-018,K-022~K-029,K-031,K-033~K-037,K-039~K-046,K-049,K-052~K-055,K-060,K-065,K-066,K-079 — OneKey/Electron/React行为异常",
     "process": "K-006,K-007,K-032,K-038,K-058,K-061~K-063,K-068~K-071,K-073,K-076~K-078,K-082,K-083,K-092 — 工作流/前置条件/状态恢复",
-    "assertion": "K-008,K-020,K-030,K-056,K-057,K-064,K-067,K-075,K-080,K-090,K-091,K-093 — 断言策略/校验方法",
+    "assertion": "K-008,K-020,K-030,K-056,K-057,K-064,K-067,K-075,K-080,K-090,K-091,K-093,K-095 — 断言策略/校验方法",
     "recording": "K-009,K-010,K-019 — 录制器相关"
   },
   "patterns": [
@@ -745,6 +745,14 @@
       "pattern": "UTXO 聚合维度：BTC/LTC 按 xpub，DOGE/BCH/Tron 按地址",
       "details": "最近转账的账户聚合规则在 UTXO 链下有区别：① **仅 BTC / LTC** 按扩展公钥（xpub）聚合，所有派生路径（Taproot / Native SegWit / Nested SegWit / Legacy）+ 历史旧地址产生的转账都进入列表；② **DOGE / BCH / Tron** 按单一地址聚合，不走 xpub。EVM 按 lowercase 地址跨链聚合，展示最近一次所在链。生成用例时注意区分，不要把 xpub 规则套用到 DOGE/BCH。源规则：`docs/qa/requirements/Wallet-最近转账.md` §2.2（v2.6）+ 用例 §2.2。",
       "confidence": 0.95
+    },
+    {
+      "id": "K-095",
+      "category": "assertion",
+      "platform": "all",
+      "pattern": "Swap /swap/v1/quote 命中 provider 不等于有效报价，必须排除 errorMessage",
+      "details": "`/swap/v1/quote` 响应的 `data` 数组会为**所有在档渠道**都返回一个条目（每个条目都有 `info.provider`），其中不支持本次询价的渠道会携带 `errorMessage: \"没有支持的报价结果\"`，但 `info.provider` 字段照样正常填充。Apifox 断言写 `data.some(x => x.info.provider.toLowerCase().includes('jupiter'))` 会**假阳性通过**——条目存在但报价无效。正确写法：`data.find(...)` 定位到对应 provider 条目后，**必须再校验** ① `errorMessage` 为空/undefined/null；② 存在 `toAmount`/`fromAmount` 等报价金额字段。Panora 模板也有同样问题，按需同步修复。该规则适用于所有渠道（Jupiter/Panora/0x/1inch/OKX/Cow/Near/Houdini/Exodus/Changelly 等）的 Apifox quote 用例。源：`docs/skills/apifox-testcase-generator/output/Swap-Jupiter-全网络全类型-Apifox-TestCases.json` 2026-04-20 修复。",
+      "confidence": 0.98
     }
   ]
 }
