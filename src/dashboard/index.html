@@ -307,6 +307,55 @@
   .editor-empty-cases { font-size: 11px; color: var(--text2); text-align: center; padding: 16px; }
 
 </style>
+<script>
+  !(function (t, e) {
+    var o, n, p, r;
+    e.__SV ||
+      ((window.posthog = e),
+      (e._i = []),
+      (e.init = function (i, s, a) {
+        function g(t, e) {
+          var o = e.split(".");
+          (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+            (t[e] = function () {
+              t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+            }));
+        }
+        (((p = t.createElement("script")).type = "text/javascript"),
+          (p.crossOrigin = "anonymous"),
+          (p.async = !0),
+          (p.src =
+            s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") + "/static/array.js"),
+          (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(p, r));
+        var u = e;
+        for (
+          void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+            u.people = u.people || [],
+            u.toString = function (t) {
+              var e = "posthog";
+              return ("posthog" !== a && (e += "." + a), t || (e += " (stub)"), e);
+            },
+            u.people.toString = function () {
+              return u.toString(1) + ".people (stub)";
+            },
+            o =
+              "init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(
+                " ",
+              ),
+            n = 0;
+          n < o.length;
+          n++
+        )
+          g(u, o[n]);
+        e._i.push([i, s, a]);
+      }),
+      (e.__SV = 1));
+  })(document, window.posthog || []);
+  posthog.init("__POSTHOG_KEY__", {
+    api_host: "__POSTHOG_HOST__",
+    defaults: "2026-05-30",
+  });
+</script>
 </head>
 <body>
 
@@ -515,6 +564,7 @@ let timerInterval = null;
 function switchPlatform(platform) {
   if (state === 'running') return; // Don't switch while running
   currentPlatform = platform;
+  posthog.capture('platform_switched', { platform });
   // Update tab UI
   document.querySelectorAll('.platform-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.platform === platform);
@@ -1099,6 +1149,11 @@ async function startRun() {
         const c = findCase(id);
         return { id, name: c ? (c.name || c.title || '') : '', status: 'pending', duration: null, error: null };
       });
+      posthog.capture('test_run_started', {
+        case_count: selected.size,
+        platform: currentPlatform,
+        case_ids: [...selected],
+      });
       startTimer();
       renderControls();
       renderStatus();
@@ -1110,6 +1165,11 @@ async function startRun() {
 
 async function stopRun() {
   try {
+    posthog.capture('test_run_stopped', {
+      platform: currentPlatform,
+      cases_completed: queueItems.filter(q => q.status === 'passed' || q.status === 'failed').length,
+      cases_total: queueItems.length,
+    });
     await fetch('/api/stop', { method: 'POST' });
   } catch (e) {
     console.error('Failed to stop:', e);
@@ -1156,6 +1216,10 @@ async function restartRun() {
     if (res.ok) {
       state = 'running';
       queueItems.forEach(q => { q.status = 'pending'; q.duration = null; q.error = null; q.steps = undefined; });
+      posthog.capture('test_run_restarted', {
+        platform: currentPlatform,
+        case_count: queueItems.length,
+      });
       startTimer();
       renderControls();
       renderStatus();
@@ -1286,6 +1350,15 @@ function connectSSE() {
   evtSource.addEventListener('done', (e) => {
     state = 'finished';
     stopTimer();
+    const passed = queueItems.filter(q => q.status === 'passed').length;
+    const failed = queueItems.filter(q => q.status === 'failed').length;
+    posthog.capture('test_run_completed', {
+      platform: currentPlatform,
+      cases_total: queueItems.length,
+      cases_passed: passed,
+      cases_failed: failed,
+      duration_ms: runElapsed,
+    });
     renderControls();
     renderStatus();
   });
@@ -1402,6 +1475,9 @@ async function saveSettings() {
     if (!res.ok) { alert('保存失败'); return; }
     const data = await res.json();
     runtimeConfig = data.config || payload;
+    posthog.capture('settings_saved', {
+      has_password: !!payload.walletPassword,
+    });
     closeSettingsModal();
   } catch (e) {
     alert('保存失败：' + e.message);
@@ -1485,6 +1561,12 @@ function applyChecklist(id) {
   const ids = (cl.items || []).flatMap(it => it.caseIds || []);
   selected = new Set(ids);
   activeChecklistId = id;
+  posthog.capture('checklist_applied', {
+    checklist_name: cl.name,
+    platform: cl.platform,
+    case_count: ids.length,
+    item_count: (cl.items || []).length,
+  });
   renderChecklistsList();
   renderTree();
   renderControls();
@@ -1845,6 +1927,14 @@ async function saveChecklist() {
       alert('保存失败：' + (err.error || res.statusText));
       return;
     }
+    await res.json();
+    posthog.capture('checklist_saved', {
+      checklist_name: payload.name,
+      platform: payload.platform,
+      is_new: !payload.id,
+      item_count: (payload.items || []).length,
+      case_count: (payload.items || []).reduce((n, it) => n + (it.caseIds || []).length, 0),
+    });
     closeChecklistEditor();
     await fetchChecklists();
     showToast('已保存到 shared/checklists.json（下次 PR 自动带上）', 'success');

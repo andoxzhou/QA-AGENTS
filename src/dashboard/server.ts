@@ -3,6 +3,9 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from '
 import { join, resolve, extname } from 'node:path';
 import { getTestRegistry } from './test-registry.ts';
 import { startRun, stopRun, resumeRun, restartRun, resetRun, getState, onEvent, type RunEvent } from './test-executor.ts';
+import { config as loadEnv } from 'dotenv';
+
+loadEnv({ path: join(resolve(import.meta.dirname, '..', '..'), '.env') });
 
 const PORT = 5050;
 const PROJECT_ROOT = resolve(import.meta.dirname, '..', '..');
@@ -479,7 +482,10 @@ const server = createServer(async (req, res) => {
       Pragma: 'no-cache',
       Expires: '0',
     });
-    res.end(readFileSync(HTML_PATH, 'utf-8'));
+    const html = readFileSync(HTML_PATH, 'utf-8')
+      .replace('__POSTHOG_KEY__', process.env.POSTHOG_PROJECT_TOKEN ?? '')
+      .replace('__POSTHOG_HOST__', process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com');
+    res.end(html);
     return;
   }
 
