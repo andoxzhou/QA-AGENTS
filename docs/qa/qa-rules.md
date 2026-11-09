@@ -183,7 +183,7 @@
 - 兼容性：多设备型号、多连接方式（USB/蓝牙/QR）
 - **输出规则**：禁止输出自动化相关内容
 - **详细规则**：`docs/qa/rules/hardware-rules.md`
-- **第三方硬件规则**：`docs/qa/rules/hardware-third-party-rules.md`（Ledger、Trezor 已沉淀）
+- **第三方硬件规则**：`docs/qa/rules/hardware-third-party-rules.md`（Ledger、Trezor、KeyStone 已沉淀）
 
 ### Referral（返佣）
 - 状态机：绑定→生效→累计→结算→发放
@@ -288,6 +288,8 @@ docs/qa/testcases/cases/
 
 **重要说明**：生成用例时自动识别模块、创建子目录并保存文件，无需用户手动指定路径。
 
+代码对比 / 审查产生的新增或修改建议须先留在独立报告，经用户明确确认后才保存为原有或新增用例；确认前不以【代码推导】待确认章节提前入库。直接依据已确认需求编写用例按原授权处理。详见 [两个独立 QA 流程与确认关口](rules/code-review-and-ui-regression.md)。
+
 ### 7.1 用例标题（单行）
 用例标题：`<模块名或组合> - <测试主题>`
 
@@ -299,10 +301,19 @@ docs/qa/testcases/cases/
 4. 风控拦截
 
 ### 7.3 每个场景输出表格（固定格式）
-使用 **Markdown 表格**，单元格内多行使用 `<br>` 标签换行。
+仓库用例源文件使用 **Markdown 表格**，单元格内多行使用 `<br>` 标签换行。
 
 表头**严格固定为 4 列**：
 `| 优先级 | 场景 | 操作步骤 | 预期结果 |`
+
+**交付时默认附可直接复制版（强制）**：
+
+- 交付新建或更新的手动用例时，默认同时提供可直接复制的 HTML 表格版本，并在回复中提供入口。
+- 可复制版正文仅保留前置条件与用例内容（章节标题、用例表格及必要的执行说明）；不展示或复制生成时间、规则文档、需求文档、需求来源、源码核对、测试端、变更说明等文档头信息。文档标题可放在复制区域外，供页面区分。
+- 可复制版保持相同的四列表头、章节分组、用例内容、数量、优先级及步骤编号；单元格内多行必须显示并复制为真实换行，不得将 `<br>`、`\n` 等标记显示或复制为可见文字。
+- 提供复制按钮，保留表格结构和单元格内换行；同时支持直接选中表格复制。后续修改用例时同步更新可复制版。
+- 交付前实际检查页面显示与复制结果，确认多行内容未合并、用例未遗漏、列未错位。
+- 本地用例及可复制版验证后，按 `docs/qa/rules/jira-test-sync-rules.md` 主动询问是否同步 Jira；编号取自 `docs/qa/jira-test-mapping.json`。同意后更新已映射 Test，无映射时询问提供编号或创建，拒绝则跳过。不得把生成用例视为自动写 Jira 的授权。
 
 > ⚠️ **严禁加 ID 列**。手动测试用例文档**不使用** test case ID（不要加 `PERPS-XXX-NNN` 之类的列或前缀）。
 > CLAUDE.md 中 `Test case IDs: <FEATURE>-<NNN>` 的规定**仅适用于自动化脚本** `src/tests/**/*.test.mjs` 里的 `testCases[].id`，**不适用于手动用例文档** `docs/qa/testcases/cases/**/*.md`。
@@ -321,7 +332,7 @@ docs/qa/testcases/cases/
 
 规则：
 - 同场景可多行（P0 / P1 / P2）。
-- **关键格式**：**场景、操作步骤、预期结果** 三列，只要单元格内包含多行内容，都必须使用 `<br>` 标签分隔，并且必须使用序号（1. 2. 3. 4.）标识每一行。
+- **源文件格式**：Markdown 中的**场景、操作步骤、预期结果** 三列，只要单元格内包含多行内容，都必须使用 `<br>` 标签分隔，并且必须使用序号（1. 2. 3. 4.）标识每一行。
 - **序号格式示例**：
   - 场景列：`1. 设备已安装 OKX App<br>2. 使用硬件钱包`
   - 操作步骤列：`1. 进入借贷首页<br>2. 观察页面展示`
@@ -755,7 +766,8 @@ UI 元素（banner / 入口按钮）的"显示 / 不显示"规则集中在第一
 - [ ] 不是所有用例都标 P0——按实际影响判断
 
 **格式：**
-- [ ] 多行内容使用 `<br>` + 编号
+- [ ] Markdown 源文件多行内容使用 `<br>` + 编号
+- [ ] 默认附可直接复制版，正文仅前置条件与用例内容，无文档头信息；四列、分组、用例内容与数量和源文件一致，显示与复制均为真实换行，无可见换行标记
 - [ ] 不同场景分组在独立表格
 - [ ] P0 排在无依赖表格顶部
 - [ ] **表格独立成段**：表格不要嵌入有序列表内（3 空格缩进会破坏 Markdown 渲染）。前置条件下若有数据表格，先用普通段落收尾列表项，再用一行普通描述句（如 `测试数据：`）引出独立表格
@@ -950,7 +962,7 @@ UI 元素（banner / 入口按钮）的"显示 / 不显示"规则集中在第一
 | DeFi | `docs/qa/rules/defi-rules.md` | DeFi 规则（借贷、质押、收益） |
 | Perps | `docs/qa/rules/perps-rules.md` | Perps 规则（开平仓、BBO、收藏功能） |
 | Hardware | `docs/qa/rules/hardware-rules.md` | Hardware 规则（设备管理、连接、设置） |
-| Hardware | `docs/qa/rules/hardware-third-party-rules.md` | Hardware 第三方硬件规则（Ledger/Trezor 连接、匹配与设备交互） |
+| Hardware | `docs/qa/rules/hardware-third-party-rules.md` | Hardware 第三方硬件规则（Ledger/Trezor/KeyStone 连接、匹配与设备交互） |
 | Referral | `docs/qa/rules/referral-rules.md` | Referral 规则（绑定、结算、发放） |
 | Browser | `docs/qa/rules/browser-rules.md` | Browser 规则（DApp 连接、签名、安全） |
 | Utility | `docs/qa/rules/utility-rules.md` | Utility 规则（设置、通知、风控、通用功能） |
@@ -1071,3 +1083,8 @@ UI 元素（banner / 入口按钮）的"显示 / 不显示"规则集中在第一
 | Solana | SOL | USDC | 极低 Gas |
 
 **详细各链规则**：见 `docs/qa/rules/transfer-chain-rules.md`
+
+## 规范变更记录
+
+- 2026-10-27：用户确认手动用例交付默认附可直接复制的 HTML 表格版本；保留真实单元格换行，复制前检查内容与列结构，Markdown 源文件沿用既有存储格式。
+- 2026-10-27：按用户要求，可复制版正文仅保留前置条件与用例内容，移除生成时间、文档路径、需求/源码来源、测试端及变更说明等头信息。

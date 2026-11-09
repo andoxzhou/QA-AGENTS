@@ -4,6 +4,10 @@
 Three-layer multi-agent UI automation testing system for OneKey wallet.
 Connected via CDP (`http://127.0.0.1:9222`) using Playwright `connectOverCDP`.
 
+## 手动用例交付与 Jira 同步（所有 AI 必须读取）
+
+新建、补充、修改手动用例时，先读 `docs/qa/qa-rules.md` §7.3 和 `docs/qa/rules/jira-test-sync-rules.md`。必须交付 Markdown 源文件及内容一致的可复制 HTML；复制正文只留前置条件与用例内容，保留真实换行。完成本地验证后，主动询问是否同步 Jira；用户同意本批同步后，按 `docs/qa/jira-test-mapping.json` 已核实的 Test 编号直接更新。无映射时询问用户提供已有 Test 编号或确认创建，用户拒绝则不写 Jira。此询问是交付流程的一部分，不受下文「不要再问」影响；当前会话已明确授权同一批目标时不重复询问。完整步骤、字段范围、回读验证与映射维护以同步规则为准。
+
 ## OneKey Desktop App
 - **可执行路径可配置**：通过环境变量 `ONEKEY_BIN` 指定，默认 `/Applications/OneKey-3.localized/OneKey.app/Contents/MacOS/OneKey`
 - **CDP URL 可配置**：通过环境变量 `CDP_URL` 指定，默认 `http://127.0.0.1:9222`
@@ -475,6 +479,13 @@ node scripts/build-locator-map.mjs --check
 - **用户纠正自动沉淀（强制）**：当用户纠正了 AI 生成的用例/脚本/规则内容时，AI 必须在任务完成后主动执行：①列出被纠正的具体内容 ②检查是否已写入对应规范文件（qa-rules.md / module-rules.md / CLAUDE.md 等）③对未覆盖的纠正点，**主动询问用户是否写入规范**。详见 `docs/qa/rules/qa-workflow-rules.md` 「用户纠正自动沉淀机制」章节。
 - **提交前 QA 审查**：commit / PR 前自动执行 `/qa-review`（别名 `/onekey-qa-review`，触发词：`审查提交`/`审查用例`/`review 用例`/`检查提交`），检查用例、规则、脚本、Skill 的规范性、一致性和安全性。安全问题硬拦截（不可跳过），其他 block 问题软拦截（可确认跳过）。审查报告保存到 `shared/reports/review-*.md`。Claude Code 加载 `.claude/skills/onekey-qa-review/SKILL.md`；Cursor 加载 `.cursor/rules/onekey-qa-review.mdc`（两份内容保持双写一致）
 
+### 提交内容精简（强制）
+
+- 仓库只保留与用例、实际自动化或其必要维护直接相关的代码、规范和固定测试输入；不复制整份用例生成执行计划，不把计划或样本数量算作脚本覆盖。
+- 报告、截图、录像、运行结果、临时快照与缓存仅保存在本地，默认通过 `.gitignore` 排除。生成和展示报告仍可进行，不能因需要交付报告而将其加入提交。
+- 每次 commit / PR 前检查 `git diff --cached --name-status`。已跟踪文件不受 `.gitignore` 影响；发现暂存的新增或修改执行产物时，自动取消该文件的暂存，保留本地文件，且不连带取消同次提交的用例或脚本。用户明确要求的历史产物删除可提交，不因清理而重新生成。
+- 断言依赖的固定输入（如二维码、边界数据）属于测试源码，保留明确的忽略例外；正式用例及可复制版不按执行报告处理。无关改动不加入本次提交，例外提交产物须有用户明确要求。
+
 ## Default Workflow（写新用例时必须遵循，不要再问）
 
 ### Phase 0 — 写脚本/用例前必读 knowledge + rules（强制 ⚠️ 不能跳过）
@@ -551,11 +562,15 @@ node scripts/lookup-rules.mjs --keyword "Keyless Wallet,无私钥"
 - 重点查看：**条件渲染**（feature gate / 可见性开关）、**平台差异**（`.ios.tsx` / `.android.tsx` / `.tsx`）、**状态持久化**（atom / `useSettingsPersistAtom` 是否跨端同步）、**枚举值**（`E*` 类型定义）
 - **同时查 git fix 历史**：`gh search prs --repo OneKeyHQ/app-monorepo --match title "fix" | head -20`，每个 OK-XXXXX 修复都对应一个曾经出问题的边界场景，需转化为用例覆盖
 - 用例 / 规则与代码实现冲突时，**优先以产品需求为准**（可主动跟用户确认），不盲目相信代码 ≡ 需求
-- **需求为主、代码推导需标注确认（强制）**：
+- **需求为主、代码推导先提案后确认（强制）**：
   - 用户给的需求生成的用例是主体，预期结果用需求口径描述
-  - 源码反推的场景（常量、内部行为、需求未提的边界）**可以写**，但必须在用例文档**单列一章「代码推导场景（待产品确认）」**，场景列加【代码推导】前缀；混在正式用例里的单个断言也要标【代码推导】。回复中列出全部待确认项；用户确认后并入正式章节
+  - 代码驱动的新增 / 修改场景只先写入独立审查报告，展示旧预期、当前代码事实和具体建议；用户明确确认后才更新原有或新增用例、可复制版、需求 / 业务规则及正式断言。不得以【代码推导】待确认章节提前写入用例库；确认 bug 不等于确认把错误行为写成预期。依据已确认需求生成用例仍按原授权执行，不扩大为其他推导项的确认
   - 规则 / 需求文档中的代码细节放独立的「源码实现参考」小节，不并入需求正文
   - **代码行为与需求不一致 = 疑似 bug**，必须在回复中主动报告（附源码位置 / PR 号），不得写成「需求变更」
+
+**简单口令**：用户明确发起 `审查 <模块>` 时加载 `onekey-code-case-review`；发起 `回归 <模块>` 时加载 `onekey-ui-regression`，如 `审查 perps` / `回归 perps`，忽略模块大小写。Perps 默认 Desktop / 最新 x 审查，或 Desktop TF 只读输入预览与可恢复本地偏好回归。显式范围优先；回归仍须遵守首次平台选择、本批账户与副作用授权，真实交易 / 远端设置 / 资金操作另确认。询问用法、引用示例或修改入口时不启动流程。
+
+**两项独立 QA 流程**：`$onekey-code-case-review` 对比最新分支与用例、交付缺陷和待确认建议，不启动实机；`$onekey-ui-regression` 基于最新已确认用例补脚本、执行实机并维护。A 不自动触发 B；B 发现业务变化同样先提案等确认。详细步骤、报告格式和覆盖率口径见 `docs/qa/rules/code-review-and-ui-regression.md`。Codex / Claude / Cursor 入口按项目 skill 镜像维护。
 
 ### 常规录制流程
 0. （上面 Phase 0 已做）也读 `shared/ui-semantic-map.json` + `shared/generated/app-monorepo-testid-index.json` 找已知定位
@@ -742,16 +757,16 @@ NODE
 5. 汇总结果（PASS/FAIL/SKIP + 通过率 + 总耗时）
 6. 失败自动诊断（见 QA Manager 规则）
 
-### 6. `设计用例` / `写用例` / `新增测试` / `@<需求文档> 生成用例`
+### 6. `设计用例` / `写用例` / `修改用例` / `补充用例` / `新增测试` / `@<需求文档> 生成用例`
 
-**角色**：Test Designer — 从 PRD 到可执行测试。
+**角色**：Test Designer — 生成或维护手动用例；明确要求自动化时再进入脚本流程。
 
-1. 读取 @ 引用需求文档（或 `docs/qa/requirements/` 对应文档）
-2. 读取 `docs/qa/qa-rules.md` + `docs/qa/rules/` 对应模块规则
-3. 提取可测试场景，分配 Test ID (`FEATURE-NNN`)，排优先级
-4. 分析前置条件
-5. 按规范生成用例，保存到 `docs/qa/testcases/cases/<模块目录>/`
-6. 如需录制 → 自动启动 CDP + 录制器
+1. 读取需求、执行知识、通用规范及模块规则，对齐 app-monorepo 源码；已知 Bug 按修复后的预期写
+2. 手动用例使用「优先级 / 场景 / 操作步骤 / 预期结果」四列，不分配 Test ID；仅自动化脚本使用 `FEATURE-NNN`
+3. 分析前置条件，去重并检查平台范围，保存到 `docs/qa/testcases/cases/<模块目录>/`
+4. 默认同时生成可复制 HTML，只保留前置条件和用例内容；验证与 Markdown 一致，保留真实换行
+5. 按 `docs/qa/rules/jira-test-sync-rules.md` 询问是否同步 Jira；同意后按共享映射更新，无映射则询问编号或确认创建，拒绝则不写入
+6. 仅明确要求录制或执行自动化时，进入对应平台连接与脚本流程
 
 ### 7. `诊断失败` / `分析结果` / `为什么失败`
 
